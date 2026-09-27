@@ -1,0 +1,6 @@
+{
+  "name": "Voice Calc",
+  "description": "Scientific Voice Calculator with smart mathematical speech parser, text-to-speech feedback, Hindi/Hinglish support, and scientific keypad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
