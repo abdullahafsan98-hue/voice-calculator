@@ -219,10 +219,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _statusMessage.value = null
 
             // TTS feedback
-            val speechReply = if (evaluation.formattedOutputs.size == 1) {
-                "The answer is ${evaluation.formattedOutputs.first()}"
+            val isHinglish = SpokenMathParser.isHinglishInput(textToProcess)
+            val frac = UniversalEquationSolver.toFractionString(finalVal)
+            val speechReply = if (isHinglish) {
+                if (frac != null) {
+                    "Uttar hai ${frac.replace("/", " bata ")}, ya lagbhag ${ScientificMathEvaluator.formatShort(finalVal)}."
+                } else {
+                    "Uttar hai $resultString."
+                }
             } else {
-                "The answers are ${evaluation.formattedOutputs.joinToString(", then ")}"
+                if (frac != null) {
+                    "The answer is ${frac.replace("/", " over ")}, or approximately ${ScientificMathEvaluator.formatShort(finalVal)}."
+                } else {
+                    "The answer is $resultString."
+                }
             }
             speakIfEnabled(speechReply)
 

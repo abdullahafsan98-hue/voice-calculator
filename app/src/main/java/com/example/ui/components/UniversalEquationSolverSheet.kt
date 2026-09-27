@@ -185,6 +185,8 @@ fun UniversalEquationSolverSheet(
                                     .horizontalScroll(rememberScrollState()),
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
+                                PresetEqChip("((x+1)^2 - (x-1)^2)") { inputEquation = "((x+1)^2 - (x-1)^2)" }
+                                PresetEqChip("((x+1)^2 - (x-1)^2) = 8") { inputEquation = "((x+1)^2 - (x-1)^2) = 8" }
                                 PresetEqChip("(1/3)x + (2/5)x = 5") { inputEquation = "(1/3)x + (2/5)x = 5" }
                                 PresetEqChip("1 by 3 x plus 2 by 5 x = 5") { inputEquation = "1 by 3 x plus 2 by 5 x = 5" }
                                 PresetEqChip("SOLVE 3x+5 = 0") { inputEquation = "SOLVE 3x+5 = 0" }

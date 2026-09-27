@@ -53,7 +53,7 @@ object ScientificMathEvaluator {
     }
 
     private fun evaluateSingle(raw: String): Double {
-        var t = raw
+        var t = preprocessExpression(raw)
 
         // Handle percentage: "%OF%"
         if (t.contains("%OF%")) {
@@ -74,19 +74,74 @@ object ScientificMathEvaluator {
         return parser.parse()
     }
 
-    fun formatResult(value: Double): String {
+    /**
+     * Preprocesses math expressions to support:
+     * - Unicode multiplication (×, ·, ✕, ✖) and division (÷, ∕)
+     * - Square/curly brackets: [ ] { } -> ( )
+     * - Implicit multiplication: 2(3+4), (2+3)(4-1), 2sqrt(9), (2)5
+     */
+    fun preprocessExpression(raw: String): String {
+        var s = raw.trim()
+        if (s.isEmpty()) return s
+
+        // 1. Bracket normalization
+        s = s.replace('[', '(').replace('{', '(')
+        s = s.replace(']', ')').replace('}', ')')
+
+        // 2. Unicode multiplication & division operators
+        s = s.replace('×', '*').replace('·', '*').replace('✕', '*').replace('✖', '*')
+        s = s.replace('÷', '/').replace('∕', '/')
+        s = s.replace("²", "^2").replace("³", "^3").replace("⁴", "^4")
+
+        // 3. Trig function powers: e.g. "sin^2(30)" -> "(sin(30))^2", "cos^2 30" -> "(cos(30))^2"
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*\\(([^()]+)\\)", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1]}(${mr.groupValues[3]}))^${mr.groupValues[2]}"
+        }
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s+([a-zA-Z0-9_.]+(?:\\([^()]+\\))?)", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1]}(${mr.groupValues[3]}))^${mr.groupValues[2]}"
+        }
+
+        // 3. Spaced 'x' or 'X' between numbers as multiplication (e.g. "3 x 4", "2 x (3+4)", "(2+3) x 5")
+        s = s.replace(Regex("(\\d+(?:\\.\\d+)?|\\))\\s+[xX]\\s+(\\d+(?:\\.\\d+)?|\\()")) { mr ->
+            "${mr.groupValues[1]}*${mr.groupValues[2]}"
+        }
+
+        // 4. Implicit multiplication
+        // Number followed by '(': "2(3+4)" -> "2*(3+4)"
+        s = s.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*\\(")) { mr ->
+            "${mr.groupValues[1]}*("
+        }
+        // ')' followed by '(': "(2+3)(4-1)" -> "(2+3)*(4-1)"
+        s = s.replace(Regex("\\)\\s*\\(")) {
+            ")*("
+        }
+        // ')' followed by number: "(2+3)5" -> "(2+3)*5"
+        s = s.replace(Regex("\\)\\s*(\\d+(?:\\.\\d+)?)")) { mr ->
+            ")*${mr.groupValues[1]}"
+        }
+        // ')' followed by letter/function: "(2)sqrt(9)" -> "(2)*sqrt(9)"
+        s = s.replace(Regex("\\)\\s*([a-zA-Z])")) { mr ->
+            ")*${mr.groupValues[1]}"
+        }
+        // Number followed by known function or constant (e.g. 2pi, 3sqrt, 2sin, 3log):
+        s = s.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*(sqrt|cbrt|sin|cos|tan|asin|acos|atan|log|ln|pi|phi|E(?!\\d))", RegexOption.IGNORE_CASE)) { mr ->
+            "${mr.groupValues[1]}*${mr.groupValues[2]}"
+        }
+
+        return s
+    }
+
+    fun formatDecimalOnly(value: Double): String {
         if (value.isNaN()) return "NaN"
         if (value == Double.POSITIVE_INFINITY) return "Infinity"
         if (value == Double.NEGATIVE_INFINITY) return "-Infinity"
 
-        // Round to 8 decimal places as in the Python script
         val rounded = (value * 100_000_000.0).roundToLong() / 100_000_000.0
         val isInt = abs(rounded - rounded.toLong()) < 1e-9
 
         return if (isInt) {
             rounded.toLong().toString()
         } else {
-            // Remove unnecessary trailing zeros
             try {
                 BigDecimal.valueOf(rounded)
                     .setScale(8, RoundingMode.HALF_UP)
@@ -95,6 +150,32 @@ object ScientificMathEvaluator {
             } catch (_: Exception) {
                 String.format(java.util.Locale.US, "%.8f", rounded).trimEnd('0').trimEnd('.')
             }
+        }
+    }
+
+    fun formatShort(value: Double): String {
+        val rounded = (value * 10000.0).roundToLong() / 10000.0
+        val isInt = abs(rounded - rounded.toLong()) < 1e-9
+        return if (isInt) {
+            rounded.toLong().toString()
+        } else {
+            String.format(java.util.Locale.US, "%.4f", rounded).trimEnd('0').trimEnd('.')
+        }
+    }
+
+    fun formatResult(value: Double): String {
+        val decStr = formatDecimalOnly(value)
+        if (value.isNaN() || value.isInfinite()) return decStr
+
+        val rounded = (value * 100_000_000.0).roundToLong() / 100_000_000.0
+        val isInt = abs(rounded - rounded.toLong()) < 1e-9
+        if (isInt) return decStr
+
+        val frac = UniversalEquationSolver.toFractionString(value)
+        return if (frac != null) {
+            "$frac ≈ $decStr"
+        } else {
+            decStr
         }
     }
 
@@ -152,6 +233,10 @@ object ScientificMathEvaluator {
                         '%' -> value % nextPower
                         else -> value
                     }
+                } else if (c == '(' || c.isLetter()) {
+                    // Implicit multiplication fallback: e.g. 2(3+4), (2+3)(4-1), 2pi
+                    val nextPower = parsePower()
+                    value *= nextPower
                 } else {
                     break
                 }
@@ -317,6 +402,24 @@ object ScientificMathEvaluator {
                 "tanh" -> {
                     checkArgCount(fname, args, 1)
                     tanh(args[0])
+                }
+                "sec" -> {
+                    checkArgCount(fname, args, 1)
+                    val cosVal = cos(args[0])
+                    if (abs(cosVal) < 1e-15) throw ArithmeticException("Division by zero (sec undefined)")
+                    1.0 / cosVal
+                }
+                "csc", "cosec" -> {
+                    checkArgCount(fname, args, 1)
+                    val sinVal = sin(args[0])
+                    if (abs(sinVal) < 1e-15) throw ArithmeticException("Division by zero (csc undefined)")
+                    1.0 / sinVal
+                }
+                "cot" -> {
+                    checkArgCount(fname, args, 1)
+                    val tanVal = tan(args[0])
+                    if (abs(tanVal) < 1e-15) throw ArithmeticException("Division by zero (cot undefined)")
+                    1.0 / tanVal
                 }
                 "sqrt" -> {
                     checkArgCount(fname, args, 1)

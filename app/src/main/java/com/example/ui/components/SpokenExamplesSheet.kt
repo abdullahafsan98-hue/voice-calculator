@@ -121,6 +121,57 @@ fun SpokenExamplesSheet(
             )
         ),
         SpokenExampleCategory(
+            categoryName = "Nested Brackets & Complex Fractions (English & Hinglish)",
+            examples = listOf(
+                "(2/3)/(4/7)" to "7/6 ≈ 1.1667",
+                "1/(2+3/4)" to "4/11 ≈ 0.3636",
+                "3/7 × 14/9" to "2/3 ≈ 0.6667",
+                "3 by 7 into 14 by 9" to "(3/7) * (14/9) -> 2/3",
+                "3 bata 7 guna 14 bata 9" to "(3/7) * (14/9) -> 2/3 (Hinglish)",
+                "2(3+4)" to "2 * 7 = 14",
+                "2 into whole 3 plus 4" to "2 * (3 + 4) = 14",
+                "2 into bracket me 3 plus 4" to "2 * (3 + 4) = 14 (Hinglish)",
+                "2 into bracket mein 3 plus 4" to "2 * (3 + 4) = 14",
+                "2 bracket 3 plus 4" to "2 * (3 + 4) = 14",
+                "2 guna bracket me teen plus char" to "2 * (3 + 4) = 14 (Hindi)",
+                "(2+(3×(4+5)))" to "2 + 3 * 9 = 29",
+                "((2+3)×(4-1))/5" to "(5 * 3) / 5 = 3",
+                "bracket me 2 plus 3 into bracket me 4 minus 1 divided by 5" to "((2+3)*(4-1))/5 = 3",
+                "1/(1+(1/(1+1/2)))" to "Continued fraction = 3/5 = 0.6"
+            )
+        ),
+        SpokenExampleCategory(
+            categoryName = "Trigonometry Powers & Operations (English & Hinglish)",
+            examples = listOf(
+                "sin square thirty plus cos square 30" to "sin²(30) + cos²(30) = 1",
+                "sin sqaure 30 plus cos square 30" to "sin²(30) + cos²(30) = 1 (typo tolerant)",
+                "sin varg tees plus cos varg tees" to "sin²(30) + cos²(30) = 1 (Hinglish)",
+                "sin varg 30 jodo cos varg 30" to "sin²(30) + cos²(30) = 1 (Hindi)",
+                "tan square 45" to "tan²(45) = 1",
+                "sin square 30 into cos square 60" to "sin²(30) * cos²(60) = 1/16",
+                "sin square 45 minus cos square 45" to "sin²(45) - cos²(45) = 0",
+                "sin cube 30" to "sin³(30) = 1/8 = 0.125",
+                "1 minus 2 into sin square 30" to "1 - 2*sin²(30) = cos(60) = 1/2",
+                "sec 60" to "sec(60) = 1/cos(60) = 2",
+                "csc 30" to "csc(30) = 1/sin(30) = 2"
+            )
+        ),
+        SpokenExampleCategory(
+            categoryName = "Whole Squares & Polynomial Expansion (English & Hinglish)",
+            examples = listOf(
+                "((x+1)^2 - (x-1)^2)" to "Expands to 4x (root x = 0)",
+                "((x+1)^2 - (x-1)^2) = 8" to "4x = 8 -> x = 2",
+                "x plus 1 whole square - x minus 1 whole square" to "(x+1)² - (x-1)² = 0 -> x = 0",
+                "x plus 1 whole square minus x minus 1 whole square" to "(x+1)² - (x-1)² = 0 -> x = 0",
+                "x plus 1 ka whole square minus x minus 1 ka whole square" to "(x+1)² - (x-1)² (Hinglish)",
+                "x plus 1 whole square minus x minus 1 whole square equals 8" to "4x = 8 -> x = 2",
+                "x plus 1 ka whole square minus x minus 1 ka whole square barabar 8" to "4x = 8 -> x = 2 (Hinglish)",
+                "(x+1)^2 + (x-1)^2 = 20" to "2x² + 2 = 20 -> x = ±3",
+                "2(x+3) - 3(x-1) = 11" to "-x + 9 = 11 -> x = -2",
+                "x plus 1 whole cube minus x cube equals 7" to "3x² + 3x - 6 = 0 -> x = 1, -2"
+            )
+        ),
+        SpokenExampleCategory(
             categoryName = "Fraction Equations (English & Hinglish)",
             examples = listOf(
                 "(1/3)x + (2/5)x = 5" to "x = 75/11 ≈ 6.8182",

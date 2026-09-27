@@ -80,6 +80,15 @@ object SpokenMathParser {
         Regex("\\bcost\\b") to "cos",
         Regex("\\bsign\\b") to "sine",
         Regex("\\bsigh\\b") to "sine",
+        Regex("\\bsine\\b") to "sin",
+        Regex("\\bcosine\\b") to "cos",
+        Regex("\\btangent\\b") to "tan",
+        Regex("\\bsecant\\b") to "sec",
+        Regex("\\bcosecant\\b") to "csc",
+        Regex("\\bcosec\\b") to "csc",
+        Regex("\\bcotangent\\b") to "cot",
+        Regex("\\bsqaure\\b|\\bsquar\\b") to "square",
+        Regex("\\bcub\\b") to "cube",
         Regex("\\blog in\\b") to "log",
         Regex("\\blogon\\b") to "log",
         Regex("\\bpie\\b") to "pi",
@@ -105,7 +114,10 @@ object SpokenMathParser {
         Regex("\\bbarabar(?:\\s+hai)?\\b") to "equals",
         Regex("\\bbata\\b|\\bbt\\b|\\bhatta\\b|\\bbatta\\b|\\bbatte\\b") to "by",
         Regex("\\baadha\\b|\\badha\\b") to "half",
-        Regex("\\bchauthai\\b") to "quarter"
+        Regex("\\bchauthai\\b") to "quarter",
+        Regex("\\bvarg\\b") to "square",
+        Regex("\\bghan\\b") to "cube",
+        Regex("\\bki power\\b|\\bki ghat\\b|\\bghat\\b") to "power"
     )
 
     private val WORD_TO_SMALL_NUM = mapOf(
@@ -147,9 +159,190 @@ object SpokenMathParser {
             "guna", "bhag", "ka", "ki", "ke", "mool", "rekhik", "dwighat", "trighat",
             "aur", "varg", "ghan", "ek", "do", "teen", "char", "chaar", "paanch",
             "panch", "che", "chhe", "saat", "aath", "nau", "das", "hai",
-            "bata", "batta", "batte", "aadha", "adha", "chauthai"
+            "bata", "batta", "batte", "aadha", "adha", "chauthai", "mein", "andar"
         )
-        return hinglishWords.any { Regex("\\b$it\\b").containsMatchIn(lower) }
+        return hinglishWords.any { Regex("\\b$it\\b").containsMatchIn(lower) } || lower.contains("bracket me")
+    }
+
+    fun isHinglishInput(raw: String): Boolean = isHinglishQuery(raw)
+
+    /**
+     * Normalizes spoken bracket phrases into clean parentheses:
+     * - "open bracket ... close bracket" -> ( ... )
+     * - "2 into whole 3 plus 4" -> 2 into (3 plus 4)
+     * - "2 into bracket me 3 plus 4" -> 2 into (3 plus 4)
+     * - "2 into bracket mein 3 plus 4" -> 2 into (3 plus 4)
+     * - "2 bracket 3 plus 4" -> 2 * (3 plus 4)
+     * - "bracket me 2 plus 3 into bracket me 4 minus 1" -> (2 plus 3) into (4 minus 1)
+     */
+    fun handleSpokenBrackets(text: String): String {
+        var s = text
+
+        // 1. Explicit open and close bracket words
+        s = s.replace(Regex("\\b(?:open\\s+(?:bracket|paren|parenthesis)|bracket\\s+open|paren\\s+open|bracket\\s+shuru)\\b"), " ( ")
+        s = s.replace(Regex("\\b(?:close\\s+(?:bracket|paren|parenthesis)|bracket\\s+close|paren\\s+close|bracket\\s+band|bracket\\s+khatam)\\b"), " ) ")
+
+        // 2. Preceded by operator: "into whole ...", "into bracket me ...", "times whole ...", "divided by whole ..."
+        val opBracketRegex = Regex("(\\b(?:into|times|guna|divided\\s+by|over|bhag|bata|\\*|\\/|\\+|-)\\s+)(?:whole\\s+(?:of\\s+)?|bracket\\s+(?:mein|me|ke\\s+andar)\\b\\s*|in\\s+bracket\\s*|inside\\s+bracket\\s*|bracket\\s+)([^()]+?)(?=\\s+(?:into|times|guna|divided\\s+by|over|bhag|\\*|\\/|\\band\\b|\\baur\\b)|$)")
+        s = s.replace(opBracketRegex) { mr ->
+            val op = mr.groupValues[1]
+            val inside = mr.groupValues[2].trim()
+            "$op($inside)"
+        }
+
+        // 3. Leading "bracket me ...", "bracket mein ...", "whole ...":
+        val leadBracketRegex = Regex("^(?:whole\\s+(?:of\\s+)?|bracket\\s+(?:mein|me|ke\\s+andar)\\b\\s*|in\\s+bracket\\s*|inside\\s+bracket\\s*)([^()]+?)(?=\\s+(?:into|times|guna|divided\\s+by|over|bhag|\\*|\\/|\\band\\b|\\baur\\b)|$)")
+        s = s.replace(leadBracketRegex) { mr ->
+            val inside = mr.groupValues[1].trim()
+            "($inside)"
+        }
+
+        // 4. "2 bracket 3 plus 4" or "2 bracket me 3 plus 4" without explicit "into":
+        val numBracketRegex = Regex("(\\d+(?:\\.\\d+)?|[a-zA-Z]+|\\))\\s+(?:bracket\\s+(?:mein|me|ke\\s+andar)\\b\\s*|bracket\\s+)([^()]+?)(?=\\s+(?:into|times|guna|divided\\s+by|over|bhag|\\*|\\/|\\band\\b|\\baur\\b)|$)")
+        s = s.replace(numBracketRegex) { mr ->
+            val prefix = mr.groupValues[1]
+            val inside = mr.groupValues[2].trim()
+            "$prefix * ($inside)"
+        }
+
+        return s
+    }
+
+    /**
+     * Normalizes spoken "whole square", "whole cube", and powers of expressions:
+     * - "x plus 1 whole square - x minus 1 whole square" -> (x plus 1)^2 - (x minus 1)^2
+     * - "x plus 1 ka whole square minus x minus 1 ka whole square" -> (x plus 1)^2 - (x minus 1)^2
+     * - "x plus 1 whole cube" -> (x plus 1)^3
+     * - "(x+1) whole square" -> (x+1)^2
+     * - "whole square of x plus 1" -> (x plus 1)^2
+     */
+    fun handleSpokenWholePowers(text: String): String {
+        var s = text
+
+        // 1. "whole square of (something)" / "whole cube of (something)"
+        s = s.replace(Regex("\\bwhole\\s+(?:square|sqaure|squar|varg)\\s+(?:of\\s+)?([^=;+*-]+?)(?=\\s+(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided|\\+|-|\\*|\\/|=|;)|$)", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1].trim()})^2"
+        }
+        s = s.replace(Regex("\\bwhole\\s+(?:cube|cubed|ghan)\\s+(?:of\\s+)?([^=;+*-]+?)(?=\\s+(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided|\\+|-|\\*|\\/|=|;)|$)", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1].trim()})^3"
+        }
+
+        // 2. Parenthesized expressions followed by "whole square" or "whole cube":
+        // e.g. "(x + 1) whole square", "(x + 1) ka whole square"
+        s = s.replace(Regex("\\(([^()]+)\\)\\s*(?:ka\\s+|ki\\s+)?(?:whole\\s+)?(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1]})^2"
+        }
+        s = s.replace(Regex("\\(([^()]+)\\)\\s*(?:ka\\s+|ki\\s+)?(?:whole\\s+)?(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1]})^3"
+        }
+        s = s.replace(Regex("\\(([^()]+)\\)\\s*(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)) { mr ->
+            "(${mr.groupValues[1]})^${mr.groupValues[2]}"
+        }
+
+        // 3. Unparenthesized expressions ending in "whole square":
+        // e.g. "x plus 1 whole square - x minus 1 whole square"
+        // e.g. "x plus 1 ka whole square minus x minus 1 ka whole square"
+        val unbracketedWholeSquare = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[=;+*/\\[(]\\s*)([^()=;+*/]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
+        s = s.replace(unbracketedWholeSquare) { mr ->
+            val prefix = mr.groupValues[1]
+            val expr = mr.groupValues[2].trim()
+            "$prefix($expr)^2"
+        }
+
+        val unbracketedWholeCube = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[=;+*/\\[(]\\s*)([^()=;+*/]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)
+        s = s.replace(unbracketedWholeCube) { mr ->
+            val prefix = mr.groupValues[1]
+            val expr = mr.groupValues[2].trim()
+            "$prefix($expr)^3"
+        }
+
+        val unbracketedWholePowerN = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[=;+*/\\[(]\\s*)([^()=;+*/]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)
+        s = s.replace(unbracketedWholePowerN) { mr ->
+            val prefix = mr.groupValues[1]
+            val expr = mr.groupValues[2].trim()
+            val p = mr.groupValues[3]
+            "$prefix($expr)^$p"
+        }
+
+        return s
+    }
+
+    /**
+     * Replaces spoken trigonometry functions, squares, cubes, and arbitrary powers:
+     * - "sin square 30", "sin squared 30", "sin sqaure 30", "sin varg 30" -> (sin((30)*pi/180))^2
+     * - "cos square 30", "cos squared 30", "cos varg 30" -> (cos((30)*pi/180))^2
+     * - "sin cube 30", "sin cubed 30", "sin ghan 30" -> (sin((30)*pi/180))^3
+     * - "sin power 4 30", "sin ki power 2 30", "sin to the power of 2 30" -> (sin((30)*pi/180))^2
+     * - "sin 30 square", "sin 30 ka square", "sin 30 ka varg" -> (sin((30)*pi/180))^2
+     * - "sin 30", "cos 60", "tan 45" -> sin((30)*pi/180), cos((60)*pi/180), tan((45)*pi/180)
+     */
+    fun replaceSpokenTrigFunctionsAndPowers(text: String): String {
+        var s = text
+        s = s.replace(Regex("\\bdegrees?\\b"), "")
+
+        val trigFuncNames = "(?:sine|sin|cosine|cos|tangent|tan|secant|sec|cosecant|cosec|csc|cotangent|cot)"
+
+        // A. Square before angle: "sin square 30", "sin squared 30", "sin sqaure 30", "sin varg 30", "sin square x"
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:square|squared|sqaure|squar|varg)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+            val fn = normalizeTrigName(mr.groupValues[1])
+            val angle = mr.groupValues[2]
+            val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
+            "($fn($angleArg))^2"
+        }
+
+        // B. Cube before angle: "sin cube 30", "sin cubed 30", "sin cub 30", "sin ghan 30"
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:cube|cubed|cub|ghan)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+            val fn = normalizeTrigName(mr.groupValues[1])
+            val angle = mr.groupValues[2]
+            val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
+            "($fn($angleArg))^3"
+        }
+
+        // C. Arbitrary power before angle: "sin power 4 30", "sin to the power of 4 30", "sin ki power 2 30", "sin ki ghat 2 30"
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:(?:to the )?power(?: of)?|ki power|ki ghat|ghat|\\^)\\s*(\\d+(?:\\.\\d+)?)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+            val fn = normalizeTrigName(mr.groupValues[1])
+            val p = mr.groupValues[2]
+            val angle = mr.groupValues[3]
+            val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
+            "($fn($angleArg))^$p"
+        }
+
+        // D. Power AFTER angle: "sin 30 square", "sin 30 ka square", "sin 30 ka varg", "sin 30 cubed"
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)\\s*(?:ka\\s+|ki\\s+)?(?:square|squared|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)) { mr ->
+            val fn = normalizeTrigName(mr.groupValues[1])
+            val angle = mr.groupValues[2]
+            val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
+            "($fn($angleArg))^2"
+        }
+
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)\\s*(?:ka\\s+|ki\\s+)?(?:cube|cubed|cub|ghan)\\b", RegexOption.IGNORE_CASE)) { mr ->
+            val fn = normalizeTrigName(mr.groupValues[1])
+            val angle = mr.groupValues[2]
+            val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
+            "($fn($angleArg))^3"
+        }
+
+        // E. Simple degree-1 trig functions: "sin 30", "cos 60", "tan 45", "sec 60", "csc 30", "cot 45"
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+            val fn = normalizeTrigName(mr.groupValues[1])
+            val angle = mr.groupValues[2]
+            val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
+            "$fn($angleArg)"
+        }
+
+        return s
+    }
+
+    private fun normalizeTrigName(raw: String): String {
+        return when (raw.lowercase()) {
+            "sine", "sin" -> "sin"
+            "cosine", "cos" -> "cos"
+            "tangent", "tan" -> "tan"
+            "secant", "sec" -> "sec"
+            "cosecant", "cosec", "csc" -> "csc"
+            "cotangent", "cot" -> "cot"
+            else -> raw.lowercase()
+        }
     }
 
     /**
@@ -212,6 +405,10 @@ object SpokenMathParser {
         // Replace equality words
         t = t.replace(Regex("\\b(?:is\\s+)?(?:equal(?:s)?\\s*(?:to)?|barabar(?:\\s+hai)?)\\b"), "=")
         t = t.replace(Regex("\\bzero\\b|\\bshunya\\b|\\bsifar\\b"), "0")
+
+        // Handle spoken brackets (e.g. "2 into whole x plus 3 equals 14", "bracket me 2x plus 1")
+        t = handleSpokenBrackets(t)
+        t = handleSpokenWholePowers(t)
 
         // 1. Spoken fraction variables: "1 by 3 x", "1 bata 3 x", "1/3 x", "2 by 5 x", "two by five x"
         t = t.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*(?:by|over|bata|batta|batte|divided by|/)\\s*(\\d+(?:\\.\\d+)?)\\s*([xyz])\\b")) {
@@ -414,19 +611,28 @@ object SpokenMathParser {
         t = replaceHindiNumberWords(t)
         t = replaceNumberWords(t)
 
+        // Handle spoken brackets: "into whole 3 plus 4", "into bracket me 3 plus 4", "2 bracket 3 plus 4"
+        t = handleSpokenBrackets(t)
+        t = handleSpokenWholePowers(t)
+
+        // Spoken constant fractions: "3 by 7" -> "(3/7)", "14 by 9" -> "(14/9)", "3 bata 7" -> "(3/7)"
+        t = t.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*(?:by|over|bata|batte|batta)\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[xyz])")) { mr ->
+            "(${mr.groupValues[1]}/${mr.groupValues[2]})"
+        }
+        t = t.replace(Regex("\\b(?:half|aadha|adha)\\b"), "(1/2)")
+        t = t.replace(Regex("\\b(?:quarter|chauthai)\\b"), "(1/4)")
+
         t = t.replace(Regex("\\bnegative\\b"), "-")
         t = t.replace(Regex("-\\s+(\\d)"), "-$1")
 
         t = replaceCompoundFunctions(t)
 
-        // Simple trig / log functions
-        t = t.replace(Regex("\\b(?:sine|sin) (?:of )?(-?\\d+(?:\\.\\d+)?)"), "sin(($1)*pi/180)")
-        t = t.replace(Regex("\\b(?:cosine|cos) (?:of )?(-?\\d+(?:\\.\\d+)?)"), "cos(($1)*pi/180)")
-        t = t.replace(Regex("\\b(?:tangent|tan) (?:of )?(-?\\d+(?:\\.\\d+)?)"), "tan(($1)*pi/180)")
+        // Trigonometry functions, squares, cubes, and arbitrary powers
+        t = replaceSpokenTrigFunctionsAndPowers(t)
+
         t = t.replace(Regex("\\bnatural log (?:of )?(-?\\d+(?:\\.\\d+)?)"), "log($1)")
         t = t.replace(Regex("\\blog (?:of )?(-?\\d+(?:\\.\\d+)?)"), "log($1,10)")
         t = t.replace(Regex("\\bsquare root (?:of )?(-?\\d+(?:\\.\\d+)?)"), "sqrt($1)")
-        t = t.replace(Regex("\\bdegrees\\b"), "")
 
         val replacements = listOf(
             Regex("\\bplus\\b") to "+",
@@ -435,19 +641,28 @@ object SpokenMathParser {
             Regex("\\bto the power of\\b") to "**",
             Regex("\\bthe\\b") to "",
             Regex("\\btimes\\b") to "*",
+            Regex("\\binto\\b") to "*",
+            Regex("\\bguna\\b|\\bgunaa\\b") to "*",
             Regex("\\bmultiplied by\\b") to "*",
             Regex("\\bmultiply(?:ing)? by\\b") to "*",
             Regex("\\bdivided by\\b") to "/",
             Regex("\\bdivide(?:d)? by\\b") to "/",
+            Regex("\\bbhag\\b|\\bbhaga\\b") to "/",
+            Regex("\\bbata\\b|\\bbatte\\b") to "/",
             Regex("\\bover\\b") to "/",
+            Regex("\\bby\\b") to "/",
             Regex("\\bx\\b") to "*",
+            Regex("×") to "*",
+            Regex("÷") to "/",
+            Regex("\\[|\\{") to "(",
+            Regex("\\]|\\}") to ")",
             Regex("\\bsquared\\b") to "**2",
             Regex("\\bsquare\\b") to "**2",
             Regex("\\bcubed\\b") to "**3",
             Regex("\\bpercent of\\b") to "%OF%",
             Regex("\\bpercent\\b") to "/100",
-            Regex("\\bopen paren(?:thesis)?\\b") to "(",
-            Regex("\\bclose paren(?:thesis)?\\b") to ")"
+            Regex("\\bopen bracket\\b|\\bbracket open\\b|\\bopen paren(?:thesis)?\\b") to "(",
+            Regex("\\bclose bracket\\b|\\bbracket close\\b|\\bclose paren(?:thesis)?\\b") to ")"
         )
 
         for ((regex, repl) in replacements) {

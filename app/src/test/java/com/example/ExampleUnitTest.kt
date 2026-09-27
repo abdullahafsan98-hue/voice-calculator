@@ -2,6 +2,7 @@ package com.example
 
 import com.example.engine.ScientificMathEvaluator
 import com.example.engine.SpokenMathParser
+import com.example.engine.UniversalEquationSolver
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -308,5 +309,250 @@ class ExampleUnitTest {
         val fracSys = SpokenMathParser.tryParseAnyEquationQuery("1 by 2 x plus 1 by 3 y equals 5 and x minus y equals 2")
         assertNotNull(fracSys)
         assertEquals(com.example.engine.UniversalEquationSolver.EquationCategory.SYSTEM_2VAR, fracSys!!.category)
+    }
+
+    @Test
+    fun testNestedBracketsAndFractions() {
+        // A. (2/3)/(4/7) -> 7/6 ≈ 1.1667
+        val resA = ScientificMathEvaluator.evaluate("(2/3)/(4/7)")
+        assertTrue(resA.isSuccess)
+        assertEquals(7.0 / 6.0, resA.values.first(), 1e-6)
+        assertTrue(resA.formattedOutputs.first().contains("7/6"))
+
+        // B. 1/(2+3/4) -> 4/11 ≈ 0.3636
+        val resB = ScientificMathEvaluator.evaluate("1/(2+3/4)")
+        assertTrue(resB.isSuccess)
+        assertEquals(4.0 / 11.0, resB.values.first(), 1e-6)
+        assertTrue(resB.formattedOutputs.first().contains("4/11"))
+
+        // C. 3/7 × 14/9 -> 2/3 ≈ 0.6667 (with Unicode multiplication symbol '×')
+        val resC = ScientificMathEvaluator.evaluate("3/7 × 14/9")
+        assertTrue(resC.isSuccess)
+        assertEquals(2.0 / 3.0, resC.values.first(), 1e-6)
+        assertTrue(resC.formattedOutputs.first().contains("2/3"))
+
+        // D. 2(3+4) -> 14 (implicit multiplication)
+        val resD = ScientificMathEvaluator.evaluate("2(3+4)")
+        assertTrue(resD.isSuccess)
+        assertEquals(14.0, resD.values.first(), 1e-6)
+        assertEquals("14", resD.formattedOutputs.first())
+
+        // E. (2+(3×(4+5))) -> 29
+        val resE = ScientificMathEvaluator.evaluate("(2+(3×(4+5)))")
+        assertTrue(resE.isSuccess)
+        assertEquals(29.0, resE.values.first(), 1e-6)
+        assertEquals("29", resE.formattedOutputs.first())
+
+        // F. ((2+3)×(4-1))/5 -> 3
+        val resF = ScientificMathEvaluator.evaluate("((2+3)×(4-1))/5")
+        assertTrue(resF.isSuccess)
+        assertEquals(3.0, resF.values.first(), 1e-6)
+        assertEquals("3", resF.formattedOutputs.first())
+
+        // G. 1/(1+(1/(1+1/2))) -> 3/5 = 0.6
+        val resG = ScientificMathEvaluator.evaluate("1/(1+(1/(1+1/2)))")
+        assertTrue(resG.isSuccess)
+        assertEquals(3.0 / 5.0, resG.values.first(), 1e-6)
+        assertTrue(resG.formattedOutputs.first().contains("3/5"))
+
+        // Spoken Case C variations:
+        // "3 by 7 into 14 by 9"
+        val normC1 = SpokenMathParser.normalize("3 by 7 into 14 by 9")
+        val evalC1 = ScientificMathEvaluator.evaluate(normC1)
+        assertTrue(evalC1.isSuccess)
+        assertEquals(2.0 / 3.0, evalC1.values.first(), 1e-6)
+
+        // "3 by 7 times 14 by 9"
+        val normC2 = SpokenMathParser.normalize("3 by 7 times 14 by 9")
+        val evalC2 = ScientificMathEvaluator.evaluate(normC2)
+        assertTrue(evalC2.isSuccess)
+        assertEquals(2.0 / 3.0, evalC2.values.first(), 1e-6)
+
+        // "3 bata 7 guna 14 bata 9"
+        val normC3 = SpokenMathParser.normalize("3 bata 7 guna 14 bata 9")
+        val evalC3 = ScientificMathEvaluator.evaluate(normC3)
+        assertTrue(evalC3.isSuccess)
+        assertEquals(2.0 / 3.0, evalC3.values.first(), 1e-6)
+
+        // "three by seven into fourteen by nine"
+        val normC4 = SpokenMathParser.normalize("three by seven into fourteen by nine")
+        val evalC4 = ScientificMathEvaluator.evaluate(normC4)
+        assertTrue(evalC4.isSuccess)
+        assertEquals(2.0 / 3.0, evalC4.values.first(), 1e-6)
+
+        // "teen bata saat guna chaudah bata nau"
+        val normC5 = SpokenMathParser.normalize("teen bata saat guna chaudah bata nau")
+        val evalC5 = ScientificMathEvaluator.evaluate(normC5)
+        assertTrue(evalC5.isSuccess)
+        assertEquals(2.0 / 3.0, evalC5.values.first(), 1e-6)
+
+        // Spoken Case D variations:
+        // "2 into whole 3 plus 4"
+        val normD1 = SpokenMathParser.normalize("2 into whole 3 plus 4")
+        val evalD1 = ScientificMathEvaluator.evaluate(normD1)
+        assertTrue(evalD1.isSuccess)
+        assertEquals(14.0, evalD1.values.first(), 1e-6)
+
+        // "2 into bracket me 3 plus 4"
+        val normD2 = SpokenMathParser.normalize("2 into bracket me 3 plus 4")
+        val evalD2 = ScientificMathEvaluator.evaluate(normD2)
+        assertTrue(evalD2.isSuccess)
+        assertEquals(14.0, evalD2.values.first(), 1e-6)
+
+        // "2 into bracket mein 3 plus 4"
+        val normD3 = SpokenMathParser.normalize("2 into bracket mein 3 plus 4")
+        val evalD3 = ScientificMathEvaluator.evaluate(normD3)
+        assertTrue(evalD3.isSuccess)
+        assertEquals(14.0, evalD3.values.first(), 1e-6)
+
+        // "2 into bracket 3 plus 4"
+        val normD4 = SpokenMathParser.normalize("2 into bracket 3 plus 4")
+        val evalD4 = ScientificMathEvaluator.evaluate(normD4)
+        assertTrue(evalD4.isSuccess)
+        assertEquals(14.0, evalD4.values.first(), 1e-6)
+
+        // "2 bracket 3 plus 4"
+        val normD5 = SpokenMathParser.normalize("2 bracket 3 plus 4")
+        val evalD5 = ScientificMathEvaluator.evaluate(normD5)
+        assertTrue(evalD5.isSuccess)
+        assertEquals(14.0, evalD5.values.first(), 1e-6)
+
+        // "2 guna bracket me teen plus char"
+        val normD6 = SpokenMathParser.normalize("2 guna bracket me teen plus char")
+        val evalD6 = ScientificMathEvaluator.evaluate(normD6)
+        assertTrue(evalD6.isSuccess)
+        assertEquals(14.0, evalD6.values.first(), 1e-6)
+
+        // Spoken Case F:
+        // "bracket me 2 plus 3 into bracket me 4 minus 1 divided by 5"
+        val normF = SpokenMathParser.normalize("bracket me 2 plus 3 into bracket me 4 minus 1 divided by 5")
+        val evalF = ScientificMathEvaluator.evaluate(normF)
+        assertTrue(evalF.isSuccess)
+        assertEquals(3.0, evalF.values.first(), 1e-6)
+    }
+
+    @Test
+    fun testTrigonometryPowersAndOperations() {
+        // 1. "sin square thirty plus cos square 30" -> 1.0
+        val norm1 = SpokenMathParser.normalize("sin square thirty plus cos square 30")
+        val eval1 = ScientificMathEvaluator.evaluate(norm1)
+        assertTrue(eval1.isSuccess)
+        assertEquals(1.0, eval1.values.first(), 1e-6)
+        assertEquals("1", ScientificMathEvaluator.formatDecimalOnly(eval1.values.first()))
+
+        // 2. "sin sqaure 30 plus cos square 30" -> 1.0 (with common speech typo "sqaure")
+        val norm2 = SpokenMathParser.normalize("sin sqaure 30 plus cos square 30")
+        val eval2 = ScientificMathEvaluator.evaluate(norm2)
+        assertTrue(eval2.isSuccess)
+        assertEquals(1.0, eval2.values.first(), 1e-6)
+
+        // 3. Hinglish: "sin varg tees plus cos varg tees" -> 1.0
+        val norm3 = SpokenMathParser.normalize("sin varg tees plus cos varg tees")
+        val eval3 = ScientificMathEvaluator.evaluate(norm3)
+        assertTrue(eval3.isSuccess)
+        assertEquals(1.0, eval3.values.first(), 1e-6)
+
+        // 4. Hindi operations: "sin varg 30 jodo cos varg 30" -> 1.0
+        val norm4 = SpokenMathParser.normalize("sin varg 30 jodo cos varg 30")
+        val eval4 = ScientificMathEvaluator.evaluate(norm4)
+        assertTrue(eval4.isSuccess)
+        assertEquals(1.0, eval4.values.first(), 1e-6)
+
+        // 5. Tan square: "tan square 45" -> 1.0
+        val norm5 = SpokenMathParser.normalize("tan square 45")
+        val eval5 = ScientificMathEvaluator.evaluate(norm5)
+        assertTrue(eval5.isSuccess)
+        assertEquals(1.0, eval5.values.first(), 1e-6)
+
+        // 6. Multiplication: "sin square 30 into cos square 60" -> 0.25 * 0.25 = 0.0625 = 1/16
+        val norm6 = SpokenMathParser.normalize("sin square 30 into cos square 60")
+        val eval6 = ScientificMathEvaluator.evaluate(norm6)
+        assertTrue(eval6.isSuccess)
+        assertEquals(0.0625, eval6.values.first(), 1e-6)
+        assertTrue(eval6.formattedOutputs.first().contains("1/16"))
+
+        // 7. Subtraction: "sin square 45 minus cos square 45" -> 0.5 - 0.5 = 0.0
+        val norm7 = SpokenMathParser.normalize("sin square 45 minus cos square 45")
+        val eval7 = ScientificMathEvaluator.evaluate(norm7)
+        assertTrue(eval7.isSuccess)
+        assertEquals(0.0, eval7.values.first(), 1e-6)
+
+        // 8. Cubic power: "sin cube 30" -> 0.5^3 = 0.125 = 1/8
+        val norm8 = SpokenMathParser.normalize("sin cube 30")
+        val eval8 = ScientificMathEvaluator.evaluate(norm8)
+        assertTrue(eval8.isSuccess)
+        assertEquals(0.125, eval8.values.first(), 1e-6)
+        assertTrue(eval8.formattedOutputs.first().contains("1/8"))
+
+        // 9. Typed math notation: "sin^2(30*pi/180) + cos^2(30*pi/180)"
+        val eval9 = ScientificMathEvaluator.evaluate("sin^2(30*pi/180) + cos^2(30*pi/180)")
+        assertTrue(eval9.isSuccess)
+        assertEquals(1.0, eval9.values.first(), 1e-6)
+
+        // 10. Reciprocal trig functions: "sec 60" -> 2.0, "csc 30" -> 2.0, "cot 45" -> 1.0
+        val norm10 = SpokenMathParser.normalize("sec 60")
+        val eval10 = ScientificMathEvaluator.evaluate(norm10)
+        assertTrue(eval10.isSuccess)
+        assertEquals(2.0, eval10.values.first(), 1e-6)
+    }
+
+    @Test
+    fun testWholeSquarePolynomialEquations() {
+        // 1. Direct typed expression: ((x+1)^2 - (x-1)^2)
+        val sol1 = UniversalEquationSolver.solveAny("((x+1)^2 - (x-1)^2)")
+        assertNotNull(sol1)
+        assertEquals(UniversalEquationSolver.EquationCategory.LINEAR_1VAR, sol1!!.category)
+        assertTrue(sol1.rootsSummary.contains("x = 0"))
+        assertTrue(sol1.rootsSummary.contains("4x"))
+
+        // 2. Direct typed equation: ((x+1)^2 - (x-1)^2) = 8
+        val sol2 = UniversalEquationSolver.solveAny("((x+1)^2 - (x-1)^2) = 8")
+        assertNotNull(sol2)
+        assertEquals("2", sol2!!.variables["x"])
+
+        // 3. Spoken English: "x plus 1 whole square - x minus 1 whole square"
+        val sol3 = SpokenMathParser.tryParseAnyEquationQuery("x plus 1 whole square - x minus 1 whole square")
+        assertNotNull(sol3)
+        assertEquals(UniversalEquationSolver.EquationCategory.LINEAR_1VAR, sol3!!.category)
+        assertTrue(sol3.rootsSummary.contains("x = 0"))
+
+        // 4. Spoken English: "x plus 1 whole square minus x minus 1 whole square"
+        val sol4 = SpokenMathParser.tryParseAnyEquationQuery("x plus 1 whole square minus x minus 1 whole square")
+        assertNotNull(sol4)
+        assertEquals(UniversalEquationSolver.EquationCategory.LINEAR_1VAR, sol4!!.category)
+        assertTrue(sol4.rootsSummary.contains("x = 0"))
+
+        // 5. Spoken Hinglish: "x plus 1 ka whole square minus x minus 1 ka whole square"
+        val sol5 = SpokenMathParser.tryParseAnyEquationQuery("x plus 1 ka whole square minus x minus 1 ka whole square")
+        assertNotNull(sol5)
+        assertEquals(UniversalEquationSolver.EquationCategory.LINEAR_1VAR, sol5!!.category)
+        assertTrue(sol5.rootsSummary.contains("x = 0"))
+
+        // 6. Spoken English with equals: "x plus 1 whole square minus x minus 1 whole square equals 8"
+        val sol6 = SpokenMathParser.tryParseAnyEquationQuery("x plus 1 whole square minus x minus 1 whole square equals 8")
+        assertNotNull(sol6)
+        assertEquals("2", sol6!!.variables["x"])
+
+        // 7. Spoken Hinglish with barabar: "x plus 1 ka whole square minus x minus 1 ka whole square barabar 8"
+        val sol7 = SpokenMathParser.tryParseAnyEquationQuery("x plus 1 ka whole square minus x minus 1 ka whole square barabar 8")
+        assertNotNull(sol7)
+        assertEquals("2", sol7!!.variables["x"])
+
+        // 8. Quadratic with whole squares: (x+1)^2 + (x-1)^2 = 20 -> 2x^2 + 2 = 20 -> x^2 = 9 -> roots 3, -3
+        val sol8 = UniversalEquationSolver.solveAny("(x+1)^2 + (x-1)^2 = 20")
+        assertNotNull(sol8)
+        assertEquals(UniversalEquationSolver.EquationCategory.QUADRATIC, sol8!!.category)
+        assertTrue(sol8.rootsSummary.contains("3") && sol8.rootsSummary.contains("-3"))
+
+        // 9. Nested bracket product: 2(x+3) - 3(x-1) = 11 -> -x + 9 = 11 -> x = -2
+        val sol9 = UniversalEquationSolver.solveAny("2(x+3) - 3(x-1) = 11")
+        assertNotNull(sol9)
+        assertEquals("-2", sol9!!.variables["x"])
+
+        // 10. Whole cube expansion: "x plus 1 whole cube minus x cube equals 7" -> 3x^2 + 3x - 6 = 0 -> roots 1, -2
+        val sol10 = SpokenMathParser.tryParseAnyEquationQuery("x plus 1 whole cube minus x cube equals 7")
+        assertNotNull(sol10)
+        assertEquals(UniversalEquationSolver.EquationCategory.QUADRATIC, sol10!!.category)
+        assertTrue(sol10.rootsSummary.contains("1") && sol10.rootsSummary.contains("-2"))
     }
 }

@@ -493,6 +493,20 @@ object UniversalEquationSolver {
             }
         }
 
+        val lExpanded = formatPoly(lTerms)
+        val rExpanded = formatPoly(rTerms)
+        val stdPoly = formatPoly(coeffs)
+        val expansionSteps = mutableListOf<String>()
+        val hasBracketsOrPowers = lhsStr.contains("(") || lhsStr.contains("^") || rhsStr.contains("(") || rhsStr.contains("^")
+        if (hasBracketsOrPowers || (rhsStr != "0" && rhsStr.isNotEmpty())) {
+            expansionSteps.add("Algebraic Expansion:")
+            expansionSteps.add("  LHS: $lhsStr ➔ $lExpanded")
+            if (rhsStr != "0" && rhsStr.isNotEmpty()) {
+                expansionSteps.add("  RHS: $rhsStr ➔ $rExpanded")
+            }
+            expansionSteps.add("  Standard Form: $stdPoly = 0")
+        }
+
         // Degree 1: Linear Equation a*x + b = 0
         if (actualDegree == 1) {
             val a = coeffs[1] ?: 1.0
@@ -500,25 +514,35 @@ object UniversalEquationSolver {
             val x = -b / a
             val xFmt = formatNum(x)
             val frac = toFractionString(x)
-            val summaryText = if (frac != null) "x = $frac ≈ $xFmt" else "x = $xFmt"
+            val summaryText = if (!originalEq.contains("=") && hasBracketsOrPowers) {
+                "x = ${frac ?: xFmt}  [Expands to: $lExpanded]"
+            } else if (frac != null) {
+                "x = $frac ≈ $xFmt"
+            } else {
+                "x = $xFmt"
+            }
 
-            val steps = mutableListOf(
-                "Standard Linear Form: ax + b = 0",
-                "  (${formatNum(a)})x + (${formatNum(b)}) = 0",
-                "  x = -(${formatNum(b)}) / (${formatNum(a)})"
-            )
+            val steps = mutableListOf<String>()
+            steps.addAll(expansionSteps)
+            steps.add("Standard Linear Form: ax + b = 0")
+            steps.add("  (${formatNum(a)})x + (${formatNum(b)}) = 0")
+            steps.add("  x = -(${formatNum(b)}) / (${formatNum(a)})")
             if (frac != null) {
                 steps.add("  x = $frac ≈ $xFmt")
             } else {
                 steps.add("  x = $xFmt")
             }
 
-            val spokenEn = if (frac != null) {
+            val spokenEn = if (!originalEq.contains("=") && hasBracketsOrPowers) {
+                "Expression expands to $lExpanded, with solution x equals ${frac?.replace("/", " over ") ?: xFmt}."
+            } else if (frac != null) {
                 "The solution is x equals ${frac.replace("/", " over ")}, or approximately $xFmt."
             } else {
                 "The solution is x equals $xFmt."
             }
-            val spokenHi = if (frac != null) {
+            val spokenHi = if (!originalEq.contains("=") && hasBracketsOrPowers) {
+                "Vyanjak $lExpanded banta hai, jiska hal x barabar ${frac?.replace("/", " bata ") ?: xFmt} hai."
+            } else if (frac != null) {
                 "Samikaran ka hal hai: x barabar ${frac.replace("/", " bata ")}, ya lagbhag $xFmt."
             } else {
                 "Samikaran ka hal hai: x barabar $xFmt."
@@ -546,7 +570,7 @@ object UniversalEquationSolver {
                 originalEquation = originalEq,
                 rootsSummary = "x₁ = ${quadSol.root1Text},  x₂ = ${quadSol.root2Text}",
                 variables = mapOf("x₁" to quadSol.root1Text, "x₂" to quadSol.root2Text),
-                steps = quadSol.steps,
+                steps = expansionSteps + quadSol.steps,
                 spokenSummary = quadSol.spokenSummary,
                 spokenSummaryHinglish = "Dwighat samikaran ke roots hain: x1 barabar ${quadSol.root1Text}, aur x2 barabar ${quadSol.root2Text}."
             )
@@ -558,55 +582,264 @@ object UniversalEquationSolver {
             val b = coeffs[2] ?: 0.0
             val c = coeffs[1] ?: 0.0
             val d = coeffs[0] ?: 0.0
-            return solveCubic(a, b, c, d, originalEq)
+            val cubicSol = solveCubic(a, b, c, d, originalEq)
+            return cubicSol.copy(steps = expansionSteps + cubicSol.steps)
         }
 
         // Degree 4 / Higher: Polynomial root finding (Numerical / companion matrix / Bairstow / Newton)
         return solveHigherPolynomial(coeffs, actualDegree, originalEq)
     }
 
-    private fun parsePolynomialTerms(expr: String): Map<Int, Double>? {
-        var s = preprocessFractions(expr, listOf('x')).replace(" ", "").replace("²", "^2").replace("³", "^3").replace("⁴", "^4")
-        if (s.isEmpty() || s == "0") return emptyMap()
+    data class Poly(val map: Map<Int, Double> = emptyMap()) {
+        val degree: Int get() = map.keys.maxOrNull() ?: 0
 
-        // Check for disallowed non-polynomial functions here
-        if (s.contains("sin") || s.contains("cos") || s.contains("tan") || s.contains("log") || s.contains("sqrt") || s.contains("/")) {
-            return null
+        operator fun plus(other: Poly): Poly {
+            val res = HashMap<Int, Double>(this.map)
+            for ((d, c) in other.map) {
+                res[d] = (res[d] ?: 0.0) + c
+            }
+            return Poly(res.filterValues { abs(it) > 1e-12 })
         }
 
-        s = s.replace("-", "+-")
-        if (s.startsWith("+-")) s = s.substring(1)
-        val tokens = s.split("+").filter { it.isNotEmpty() }
-        val terms = mutableMapOf<Int, Double>()
+        operator fun minus(other: Poly): Poly {
+            val res = HashMap<Int, Double>(this.map)
+            for ((d, c) in other.map) {
+                res[d] = (res[d] ?: 0.0) - c
+            }
+            return Poly(res.filterValues { abs(it) > 1e-12 })
+        }
 
-        for (token in tokens) {
-            when {
-                token.contains("x^") -> {
-                    val parts = token.split("x^")
-                    val coef = when (parts[0]) {
-                        "", "+" -> 1.0
-                        "-" -> -1.0
-                        else -> parts[0].toDoubleOrNull() ?: return null
-                    }
-                    val deg = parts[1].toIntOrNull() ?: return null
-                    terms[deg] = (terms[deg] ?: 0.0) + coef
+        operator fun times(other: Poly): Poly {
+            val res = mutableMapOf<Int, Double>()
+            for ((d1, c1) in this.map) {
+                for ((d2, c2) in other.map) {
+                    val deg = d1 + d2
+                    res[deg] = (res[deg] ?: 0.0) + c1 * c2
                 }
-                token.endsWith("x") -> {
-                    val p = token.dropLast(1)
-                    val coef = when (p) {
-                        "", "+" -> 1.0
-                        "-" -> -1.0
-                        else -> p.toDoubleOrNull() ?: return null
+            }
+            return Poly(res.filterValues { abs(it) > 1e-12 })
+        }
+
+        fun pow(n: Int): Poly {
+            if (n < 0 || n > 10) throw IllegalArgumentException("Power $n not supported for polynomial")
+            if (n == 0) return Poly(mapOf(0 to 1.0))
+            var res = this
+            for (i in 2..n) {
+                res = res * this
+            }
+            return res
+        }
+
+        companion object {
+            val ZERO = Poly(emptyMap())
+            fun constant(c: Double) = if (abs(c) < 1e-12) ZERO else Poly(mapOf(0 to c))
+            fun x(power: Int = 1, coef: Double = 1.0) = if (abs(coef) < 1e-12) ZERO else Poly(mapOf(power to coef))
+        }
+    }
+
+    class PolyParser(raw: String) {
+        private val input = preprocessInput(raw)
+        private var pos = 0
+        private val varName = detectVarName(input)
+
+        private fun detectVarName(s: String): Char {
+            for (ch in s) {
+                if (ch in listOf('x', 'y', 'z', 'X', 'Y', 'Z')) return ch.lowercaseChar()
+            }
+            return 'x'
+        }
+
+        private fun preprocessInput(s: String): String {
+            var t = s.trim().replace("²", "^2").replace("³", "^3").replace("⁴", "^4")
+            t = t.replace('[', '(').replace(']', ')')
+            t = t.replace('{', '(').replace('}', ')')
+            t = t.replace('×', '*').replace('·', '*').replace('✕', '*').replace('✖', '*')
+            t = t.replace('÷', '/').replace('∕', '/')
+            return t
+        }
+
+        private fun peek(): Char = if (pos < input.length) input[pos] else '\u0000'
+        private fun get(): Char = if (pos < input.length) input[pos++] else '\u0000'
+        private fun skipWhitespace() {
+            while (pos < input.length && input[pos].isWhitespace()) pos++
+        }
+
+        fun parse(): Poly {
+            skipWhitespace()
+            if (pos >= input.length) return Poly.ZERO
+            val res = parseExpression()
+            skipWhitespace()
+            if (pos < input.length) {
+                throw IllegalArgumentException("Unexpected trailing character '${input[pos]}' in '$input'")
+            }
+            return res
+        }
+
+        private fun parseExpression(): Poly {
+            skipWhitespace()
+            var left = parseTerm()
+            while (true) {
+                skipWhitespace()
+                val c = peek()
+                if (c == '+' || c == '-') {
+                    get()
+                    val right = parseTerm()
+                    left = if (c == '+') left + right else left - right
+                } else {
+                    break
+                }
+            }
+            return left
+        }
+
+        private fun parseTerm(): Poly {
+            skipWhitespace()
+            var isNeg = false
+            if (peek() == '+') {
+                get()
+                skipWhitespace()
+            } else if (peek() == '-') {
+                get()
+                skipWhitespace()
+                isNeg = true
+            }
+            var left = parseFactor()
+            if (isNeg) {
+                left = Poly.ZERO - left
+            }
+            while (true) {
+                skipWhitespace()
+                val c = peek()
+                if (c == '*') {
+                    get()
+                    if (peek() == '*') { // '**' power
+                        pos--
+                        break
                     }
-                    terms[1] = (terms[1] ?: 0.0) + coef
+                    val right = parseFactor()
+                    left = left * right
+                } else if (c == '/') {
+                    get()
+                    val right = parseFactor()
+                    if (right.degree != 0 || abs(right.map[0] ?: 0.0) < 1e-12) {
+                        throw IllegalArgumentException("Non-constant divisor")
+                    }
+                    val div = right.map[0]!!
+                    left = Poly(left.map.mapValues { it.value / div }.filterValues { abs(it) > 1e-12 })
+                } else if (c == '(' || c.lowercaseChar() == varName || c.isDigit()) {
+                    // Implicit multiplication: 2(x+1), (x+1)(x-1), 2x, (x+1)2
+                    val right = parseFactor()
+                    left = left * right
+                } else {
+                    break
+                }
+            }
+            return left
+        }
+
+        private fun parseFactor(): Poly {
+            skipWhitespace()
+            var base = parsePrimary()
+            skipWhitespace()
+            if (peek() == '^') {
+                get()
+                skipWhitespace()
+                val powNum = parseInteger()
+                base = base.pow(powNum)
+            } else if (peek() == '*' && pos + 1 < input.length && input[pos + 1] == '*') {
+                get(); get()
+                skipWhitespace()
+                val powNum = parseInteger()
+                base = base.pow(powNum)
+            }
+            return base
+        }
+
+        private fun parsePrimary(): Poly {
+            skipWhitespace()
+            val c = peek()
+            if (c == '(') {
+                get()
+                val inner = parseExpression()
+                skipWhitespace()
+                if (peek() == ')') get()
+                return inner
+            }
+            if (c.lowercaseChar() == varName) {
+                get()
+                return Poly.x(1, 1.0)
+            }
+            if (c.isDigit() || c == '.') {
+                val num = parseNumber()
+                return Poly.constant(num)
+            }
+            throw IllegalArgumentException("Unexpected character '$c' at pos $pos in '$input'")
+        }
+
+        private fun parseInteger(): Int {
+            skipWhitespace()
+            val start = pos
+            if (peek() == '-') get()
+            while (pos < input.length && input[pos].isDigit()) pos++
+            val str = input.substring(start, pos)
+            return str.toIntOrNull() ?: throw IllegalArgumentException("Expected integer power, got '$str'")
+        }
+
+        private fun parseNumber(): Double {
+            skipWhitespace()
+            val start = pos
+            while (pos < input.length && (input[pos].isDigit() || input[pos] == '.')) pos++
+            val str = input.substring(start, pos)
+            return str.toDoubleOrNull() ?: throw IllegalArgumentException("Expected number, got '$str'")
+        }
+    }
+
+    fun formatPoly(terms: Map<Int, Double>, varName: String = "x"): String {
+        val nonZero = terms.filter { abs(it.value) > 1e-9 }
+        if (nonZero.isEmpty()) return "0"
+        val degs = nonZero.keys.sortedDescending()
+        val sb = StringBuilder()
+        for (d in degs) {
+            val c = nonZero[d] ?: 0.0
+            val sign = if (c >= 0) (if (sb.isEmpty()) "" else " + ") else (if (sb.isEmpty()) "-" else " - ")
+            val absC = abs(c)
+            val frac = toFractionString(absC)
+            val cFmt = frac ?: formatNum(absC)
+            when (d) {
+                0 -> sb.append("$sign$cFmt")
+                1 -> {
+                    val coefStr = if (abs(absC - 1.0) < 1e-9) "" else (if (frac != null) "($frac)" else cFmt)
+                    sb.append("$sign$coefStr$varName")
                 }
                 else -> {
-                    val coef = token.toDoubleOrNull() ?: return null
-                    terms[0] = (terms[0] ?: 0.0) + coef
+                    val coefStr = if (abs(absC - 1.0) < 1e-9) "" else (if (frac != null) "($frac)" else cFmt)
+                    sb.append("$sign$coefStr$varName^$d")
                 }
             }
         }
-        return terms
+        return sb.toString()
+    }
+
+    private fun parsePolynomialTerms(expr: String): Map<Int, Double>? {
+        val s = expr.trim()
+        if (s.isEmpty() || s == "0") return emptyMap()
+
+        // Quick rejection of non-polynomial functions
+        if (s.contains("sin", ignoreCase = true) ||
+            s.contains("cos", ignoreCase = true) ||
+            s.contains("tan", ignoreCase = true) ||
+            s.contains("log", ignoreCase = true) ||
+            s.contains("sqrt", ignoreCase = true)
+        ) {
+            return null
+        }
+
+        return try {
+            val poly = PolyParser(s).parse()
+            poly.map
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
