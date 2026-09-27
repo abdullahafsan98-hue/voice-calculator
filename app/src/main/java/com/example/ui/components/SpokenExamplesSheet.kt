@@ -196,7 +196,11 @@ fun SpokenExamplesSheet(
                 "ek sau jodo pachas" to "100 + 50",
                 "dus guna teen" to "10 * 3",
                 "paanch ka square" to "5² = 25",
-                "do ki power aath" to "2^8 = 256"
+                "2 ki power 2" to "2² = 4",
+                "2 ka power 3" to "2³ = 8",
+                "10 ki power 4" to "10⁴ = 10,000",
+                "do ki power aath" to "2^8 = 256",
+                "2 ki power minus 2" to "2^(-2) = 0.25"
             )
         ),
         SpokenExampleCategory(

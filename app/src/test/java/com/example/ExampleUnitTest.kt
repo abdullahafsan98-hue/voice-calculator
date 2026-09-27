@@ -555,4 +555,60 @@ class ExampleUnitTest {
         assertEquals(UniversalEquationSolver.EquationCategory.QUADRATIC, sol10!!.category)
         assertTrue(sol10.rootsSummary.contains("1") && sol10.rootsSummary.contains("-2"))
     }
+
+    @Test
+    fun testHinglishNumberKiPowerNumber() {
+        // 1. "2 ki power 2" -> 4.0
+        val norm1 = SpokenMathParser.normalize("2 ki power 2")
+        val eval1 = ScientificMathEvaluator.evaluate(norm1)
+        assertTrue(eval1.isSuccess)
+        assertEquals(4.0, eval1.values.first(), 1e-6)
+
+        // 2. "2 ka power 3" -> 8.0
+        val norm2 = SpokenMathParser.normalize("2 ka power 3")
+        val eval2 = ScientificMathEvaluator.evaluate(norm2)
+        assertTrue(eval2.isSuccess)
+        assertEquals(8.0, eval2.values.first(), 1e-6)
+
+        // 3. Hindi words: "do ki power do" -> 4.0
+        val norm3 = SpokenMathParser.normalize("do ki power do")
+        val eval3 = ScientificMathEvaluator.evaluate(norm3)
+        assertTrue(eval3.isSuccess)
+        assertEquals(4.0, eval3.values.first(), 1e-6)
+
+        // 4. "paanch ki power teen" -> 125.0
+        val norm4 = SpokenMathParser.normalize("paanch ki power teen")
+        val eval4 = ScientificMathEvaluator.evaluate(norm4)
+        assertTrue(eval4.isSuccess)
+        assertEquals(125.0, eval4.values.first(), 1e-6)
+
+        // 5. "10 ki power 4" -> 10000.0
+        val norm5 = SpokenMathParser.normalize("10 ki power 4")
+        val eval5 = ScientificMathEvaluator.evaluate(norm5)
+        assertTrue(eval5.isSuccess)
+        assertEquals(10000.0, eval5.values.first(), 1e-6)
+
+        // 6. "2 ki ghat 3" -> 8.0
+        val norm6 = SpokenMathParser.normalize("2 ki ghat 3")
+        val eval6 = ScientificMathEvaluator.evaluate(norm6)
+        assertTrue(eval6.isSuccess)
+        assertEquals(8.0, eval6.values.first(), 1e-6)
+
+        // 7. "2 raised to 4" -> 16.0
+        val norm7 = SpokenMathParser.normalize("2 raised to 4")
+        val eval7 = ScientificMathEvaluator.evaluate(norm7)
+        assertTrue(eval7.isSuccess)
+        assertEquals(16.0, eval7.values.first(), 1e-6)
+
+        // 8. Negative power: "2 ki power minus 2" -> 0.25
+        val norm8 = SpokenMathParser.normalize("2 ki power minus 2")
+        val eval8 = ScientificMathEvaluator.evaluate(norm8)
+        assertTrue(eval8.isSuccess)
+        assertEquals(0.25, eval8.values.first(), 1e-6)
+
+        // 9. In equation: "2 ki power x equals 16"
+        val eqSol = SpokenMathParser.tryParseAnyEquationQuery("2 ki power x equals 16")
+        assertNotNull(eqSol)
+        assertTrue(eqSol!!.rootsSummary.contains("4"))
+    }
 }

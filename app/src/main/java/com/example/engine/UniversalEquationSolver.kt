@@ -63,7 +63,8 @@ object UniversalEquationSolver {
         }
 
         // Single equation processing
-        val eq = if (!clean.contains("=")) "$clean = 0" else clean
+        val hasOriginalEquals = clean.contains("=")
+        val eq = if (!hasOriginalEquals) "$clean = 0" else clean
         val sides = eq.split("=")
         if (sides.size != 2) return null
 
@@ -71,7 +72,7 @@ object UniversalEquationSolver {
         val rhsStr = sides[1].trim()
 
         // 1. Try Polynomial Solver (Linear, Quadratic, Cubic, Quartic)
-        val polySol = trySolvePolynomial(lhsStr, rhsStr, eq)
+        val polySol = trySolvePolynomial(lhsStr, rhsStr, eq, hasOriginalEquals)
         if (polySol != null) return polySol
 
         // 2. Try Transcendental / Numerical Solver (e.g. cos(x) = x, e^x = 10, 2^x = 16, sqrt(x+5) = 4)
@@ -455,7 +456,7 @@ object UniversalEquationSolver {
     // 3. POLYNOMIAL EQUATIONS (Linear, Quad, Cubic, Quartic)
     // ==========================================
 
-    private fun trySolvePolynomial(lhsStr: String, rhsStr: String, originalEq: String): EquationSolution? {
+    private fun trySolvePolynomial(lhsStr: String, rhsStr: String, originalEq: String, hasOriginalEquals: Boolean = true): EquationSolution? {
         val lTerms = parsePolynomialTerms(lhsStr) ?: return null
         val rTerms = parsePolynomialTerms(rhsStr) ?: return null
 
@@ -514,7 +515,7 @@ object UniversalEquationSolver {
             val x = -b / a
             val xFmt = formatNum(x)
             val frac = toFractionString(x)
-            val summaryText = if (!originalEq.contains("=") && hasBracketsOrPowers) {
+            val summaryText = if (!hasOriginalEquals && hasBracketsOrPowers) {
                 "x = ${frac ?: xFmt}  [Expands to: $lExpanded]"
             } else if (frac != null) {
                 "x = $frac ≈ $xFmt"
@@ -533,14 +534,14 @@ object UniversalEquationSolver {
                 steps.add("  x = $xFmt")
             }
 
-            val spokenEn = if (!originalEq.contains("=") && hasBracketsOrPowers) {
+            val spokenEn = if (!hasOriginalEquals && hasBracketsOrPowers) {
                 "Expression expands to $lExpanded, with solution x equals ${frac?.replace("/", " over ") ?: xFmt}."
             } else if (frac != null) {
                 "The solution is x equals ${frac.replace("/", " over ")}, or approximately $xFmt."
             } else {
                 "The solution is x equals $xFmt."
             }
-            val spokenHi = if (!originalEq.contains("=") && hasBracketsOrPowers) {
+            val spokenHi = if (!hasOriginalEquals && hasBracketsOrPowers) {
                 "Vyanjak $lExpanded banta hai, jiska hal x barabar ${frac?.replace("/", " bata ") ?: xFmt} hai."
             } else if (frac != null) {
                 "Samikaran ka hal hai: x barabar ${frac.replace("/", " bata ")}, ya lagbhag $xFmt."

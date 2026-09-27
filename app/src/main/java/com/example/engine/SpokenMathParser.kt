@@ -116,8 +116,7 @@ object SpokenMathParser {
         Regex("\\baadha\\b|\\badha\\b") to "half",
         Regex("\\bchauthai\\b") to "quarter",
         Regex("\\bvarg\\b") to "square",
-        Regex("\\bghan\\b") to "cube",
-        Regex("\\bki power\\b|\\bki ghat\\b|\\bghat\\b") to "power"
+        Regex("\\bghan\\b") to "cube"
     )
 
     private val WORD_TO_SMALL_NUM = mapOf(
@@ -242,21 +241,21 @@ object SpokenMathParser {
         // 3. Unparenthesized expressions ending in "whole square":
         // e.g. "x plus 1 whole square - x minus 1 whole square"
         // e.g. "x plus 1 ka whole square minus x minus 1 ka whole square"
-        val unbracketedWholeSquare = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[=;+*/\\[(]\\s*)([^()=;+*/]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
+        val unbracketedWholeSquare = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[-+=;*/()\\[\\]]\\s*)([^-+=;*/()\\[\\]]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(unbracketedWholeSquare) { mr ->
             val prefix = mr.groupValues[1]
             val expr = mr.groupValues[2].trim()
             "$prefix($expr)^2"
         }
 
-        val unbracketedWholeCube = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[=;+*/\\[(]\\s*)([^()=;+*/]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)
+        val unbracketedWholeCube = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[-+=;*/()\\[\\]]\\s*)([^-+=;*/()\\[\\]]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(unbracketedWholeCube) { mr ->
             val prefix = mr.groupValues[1]
             val expr = mr.groupValues[2].trim()
             "$prefix($expr)^3"
         }
 
-        val unbracketedWholePowerN = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[=;+*/\\[(]\\s*)([^()=;+*/]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)
+        val unbracketedWholePowerN = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[-+=;*/()\\[\\]]\\s*)([^-+=;*/()\\[\\]]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(unbracketedWholePowerN) { mr ->
             val prefix = mr.groupValues[1]
             val expr = mr.groupValues[2].trim()
@@ -441,7 +440,8 @@ object SpokenMathParser {
         t = t.replace(Regex("x\\s*(?:ki\\s+)?power\\s*(\\d+)"), " x^$1 ")
         t = t.replace(Regex("x\\s*\\^\\s*3|x\\s*³"), " x^3 ")
         t = t.replace(Regex("x\\s*\\^\\s*2|x\\s*²"), " x^2 ")
-        t = t.replace(Regex("\\bto the power of\\b|\\bki power\\b|\\bki ghat\\b|\\bghat\\b"), "^")
+        val eqPowerRegex = Regex("\\b(?:raised\\s+to\\s+(?:the\\s+)?power(?:\\s+of)?|raised\\s+to|to\\s+the\\s+power(?:\\s+of)?|to\\s+power(?:\\s+of)?|(?:ka|ki|ke)\\s+power(?:\\s+of)?|(?:ka|ki|ke)\\s+ghat|power(?:\\s+of)?|ghat)\\b", RegexOption.IGNORE_CASE)
+        t = t.replace(eqPowerRegex, " ^ ")
 
         // Operators
         t = t.replace(Regex("\\bplus\\b|\\bjodo\\b|\\bjoda\\b|\\bdhan\\b"), "+")
@@ -638,7 +638,7 @@ object SpokenMathParser {
             Regex("\\bplus\\b") to "+",
             Regex("\\band\\b") to ";",
             Regex("\\bminus\\b") to "-",
-            Regex("\\bto the power of\\b") to "**",
+            Regex("\\b(?:raised\\s+to\\s+(?:the\\s+)?power(?:\\s+of)?|raised\\s+to|to\\s+the\\s+power(?:\\s+of)?|to\\s+power(?:\\s+of)?|(?:ka|ki|ke)\\s+power(?:\\s+of)?|(?:ka|ki|ke)\\s+ghat|power(?:\\s+of)?|ghat)\\b", RegexOption.IGNORE_CASE) to "**",
             Regex("\\bthe\\b") to "",
             Regex("\\btimes\\b") to "*",
             Regex("\\binto\\b") to "*",
