@@ -227,9 +227,9 @@ object PhoneticMathNormalizer {
         }
 
         // 3. Binomial or polynomial expressions ending in "whole square":
-        // Exclude reserved math keywords (whole, square, cube, equals, barabar, etc.) so multiple clauses in a sentence don't get greedily joined
-        val nonReservedToken = "(?:(?!(?:whole|square|sqaure|squar|cube|cubed|varg|ghan|equals|barabar)\\b)[a-zA-Z0-9_.]+)"
-        val binomialExpr = "(\\([a-zA-Z0-9_+\\-*\\/\\s.]+\\)|$nonReservedToken(?:\\s*(?:[+\\-]|plus|minus)\\s*$nonReservedToken)+)"
+        // Exclude reserved math keywords (whole, square, cube, varg, ghan) so terms like 'square' in previous expressions are not matched as variable terms
+        val token = "(?!\\b(?:whole|square|sqaure|squar|cube|cubed|varg|ghan|equals|barabar)\\b)[a-zA-Z0-9_.]+"
+        val binomialExpr = "(\\([a-zA-Z0-9_+\\-*\\/\\s.]+\\)|\\b$token(?:\\s*(?:[+\\-]|plus|minus)\\s*$token)+)"
 
         val binomialWholeSquare = Regex("$binomialExpr\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(binomialWholeSquare) { mr ->

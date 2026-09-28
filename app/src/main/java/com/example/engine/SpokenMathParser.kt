@@ -287,14 +287,15 @@ object SpokenMathParser {
         val isHinglish = isHinglishQuery(raw)
         var t = raw.lowercase().trim()
 
-        val isEquationIntent = t.contains("solve") || t.contains("equation") || t.contains("system") ||
-                t.contains("root") || t.contains("equal") || t.contains("=") || t.contains("barabar") ||
-                t.contains("x") || t.contains("y") || t.contains("z") || t.contains("theta") ||
-                t.contains("hal") || t.contains("samikaran") || t.contains("nikalo") || t.contains("batao") ||
-                t.contains("mool") || t.contains("cube") || t.contains("square") || t.contains("ghan") || t.contains("varg") ||
-                t.contains("by") || t.contains("bata") || t.contains("batta") || t.contains("batte") || t.contains("/") ||
-                t.contains("sin") || t.contains("cos") || t.contains("tan") || t.contains("sec") || t.contains("csc") || t.contains("cot") ||
-                t.contains("asin") || t.contains("acos") || t.contains("atan") || t.contains("inverse") || t.contains("arc")
+        val hasEquality = t.contains("=") || t.contains("equal") || t.contains("barabar")
+        val hasVariable = Regex("(?<![a-zA-Z])[xyz](?![a-zA-Z])|\\btheta\\b").containsMatchIn(t)
+        val hasExplicitSolveTrigger = t.contains("solve") || t.contains("equation") || t.contains("system") ||
+                t.contains("root") || t.contains("hal") || t.contains("samikaran") || t.contains("mool") ||
+                t.contains("nikalo") || t.contains("batao")
+
+        // Must have either explicit equality, or a variable with solving intent.
+        // Pure function evaluations (e.g. "sin 30", "cos 60", "tan 45", "sec 60") have no variable and no equality!
+        val isEquationIntent = hasEquality || (hasVariable && hasExplicitSolveTrigger) || (hasVariable && (t.contains("sin") || t.contains("cos") || t.contains("tan") || t.contains("sec") || t.contains("csc") || t.contains("cot") || t.contains("^") || t.contains("square") || t.contains("cube")))
 
         if (!isEquationIntent) return null
 
@@ -466,12 +467,11 @@ object SpokenMathParser {
         t = t.replace(Regex("(\\d+)\\s+x\\b"), "$1x")
         t = t.replace(Regex("(\\d+)\\s+x\\^2"), "$1x^2")
 
-        // If equation contains "x^2" or "x²" but lacks "=", implicitly append "= 0"
         if (!t.contains("=") && (t.contains("x^2") || t.contains("x²"))) {
             t += " = 0"
         }
 
-        if (t.contains("x^2") || t.contains("x")) {
+        if (t.contains("x^2") || t.contains("x²") || Regex("(?<![a-zA-Z])x(?![a-zA-Z])").containsMatchIn(t)) {
             val solution = QuadraticEquationSolver.parseAndSolve(t)
             if (solution != null) return solution
         }

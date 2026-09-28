@@ -64,6 +64,14 @@ object UniversalEquationSolver {
 
         // Single equation processing
         val hasOriginalEquals = clean.contains("=")
+        val hasVariable = Regex("(?<![a-zA-Z])[xyz](?![a-zA-Z])|\\btheta\\b", RegexOption.IGNORE_CASE).containsMatchIn(clean)
+
+        // If there is no '=' and no variable (e.g. "sin 30", "cos 60", "2 + 3", "sqrt(81)"),
+        // it cannot be an equation. Return null so it is evaluated as an arithmetic/scientific expression.
+        if (!hasOriginalEquals && !hasVariable) {
+            return null
+        }
+
         val eq = if (!hasOriginalEquals) "$clean = 0" else clean
         val sides = eq.split("=")
         if (sides.size != 2) return null
@@ -1009,6 +1017,9 @@ object UniversalEquationSolver {
     // ==========================================
 
     private fun solveNumericalTranscendental(lhsStr: String, rhsStr: String, originalEq: String): EquationSolution? {
+        val hasVariable = Regex("(?<![a-zA-Z])[xyz](?![a-zA-Z])|\\btheta\\b", RegexOption.IGNORE_CASE).containsMatchIn(lhsStr + rhsStr)
+        if (!hasVariable) return null
+
         val sanitizedLhs = ScientificMathEvaluator.preprocessExpression(lhsStr)
         val sanitizedRhs = ScientificMathEvaluator.preprocessExpression(rhsStr)
         val diffExpr = "($sanitizedLhs) - ($sanitizedRhs)"
@@ -1172,6 +1183,9 @@ object UniversalEquationSolver {
         val hasTrig = (lhsStr + rhsStr).contains(trigPattern)
         if (!hasTrig) return null
 
+        val hasVariable = Regex("(?<![a-zA-Z])[xyz](?![a-zA-Z])|\\btheta\\b", RegexOption.IGNORE_CASE).containsMatchIn(lhsStr + rhsStr)
+        if (!hasVariable) return null
+
         val sanitizedLhs = ScientificMathEvaluator.preprocessExpression(lhsStr)
         val sanitizedRhs = ScientificMathEvaluator.preprocessExpression(rhsStr)
         val diffExpr = "($sanitizedLhs) - ($sanitizedRhs)"
@@ -1290,6 +1304,11 @@ object UniversalEquationSolver {
                     val normalizedRoot = if (abs(mid - twoPi) < 0.01) 0.0 else mid
                     val fFinal = f(normalizedRoot)
                     if (fFinal != null && abs(fFinal) < 1e-3 && roots.none { abs(it - normalizedRoot) < 0.02 }) {
+                        roots.add(normalizedRoot)
+                    }
+                } else if (abs(currY) < 1e-3) {
+                    val normalizedRoot = if (abs(currX - twoPi) < 0.01) 0.0 else currX
+                    if (roots.none { abs(it - normalizedRoot) < 0.03 }) {
                         roots.add(normalizedRoot)
                     }
                 }

@@ -822,4 +822,62 @@ class ExampleUnitTest {
         assertTrue(spokenEval6.isSuccess)
         assertEquals(45.0, spokenEval6.values.first(), 1e-4)
     }
+
+    @Test
+    fun testTrigExpressionsNotTreatedAsEquations() {
+        // Direct spoken trig expressions must NOT be intercepted as equations:
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("sin 30"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("cos 60"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("tan 45"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("sec 60"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("cosec 30"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("cot 45"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("sin square 30 plus cos square 30"))
+        assertNull(SpokenMathParser.tryParseAnyEquationQuery("sine of 30 degrees"))
+
+        // They must evaluate directly to correct numerical answers:
+        val sin30Norm = SpokenMathParser.normalize("sin 30")
+        val sin30Eval = ScientificMathEvaluator.evaluate(sin30Norm)
+        assertTrue(sin30Eval.isSuccess)
+        assertEquals(0.5, sin30Eval.values.first(), 1e-4)
+
+        val cos60Norm = SpokenMathParser.normalize("cos 60")
+        val cos60Eval = ScientificMathEvaluator.evaluate(cos60Norm)
+        assertTrue(cos60Eval.isSuccess)
+        assertEquals(0.5, cos60Eval.values.first(), 1e-4)
+
+        val tan45Norm = SpokenMathParser.normalize("tan 45")
+        val tan45Eval = ScientificMathEvaluator.evaluate(tan45Norm)
+        assertTrue(tan45Eval.isSuccess)
+        assertEquals(1.0, tan45Eval.values.first(), 1e-4)
+
+        val sec60Norm = SpokenMathParser.normalize("sec 60")
+        val sec60Eval = ScientificMathEvaluator.evaluate(sec60Norm)
+        assertTrue(sec60Eval.isSuccess)
+        assertEquals(2.0, sec60Eval.values.first(), 1e-4)
+
+        val csc30Norm = SpokenMathParser.normalize("cosec 30")
+        val csc30Eval = ScientificMathEvaluator.evaluate(csc30Norm)
+        assertTrue(csc30Eval.isSuccess)
+        assertEquals(2.0, csc30Eval.values.first(), 1e-4)
+
+        val cot45Norm = SpokenMathParser.normalize("cot 45")
+        val cot45Eval = ScientificMathEvaluator.evaluate(cot45Norm)
+        assertTrue(cot45Eval.isSuccess)
+        assertEquals(1.0, cot45Eval.values.first(), 1e-4)
+
+        val pythNorm = SpokenMathParser.normalize("sin square 30 plus cos square 30")
+        val pythEval = ScientificMathEvaluator.evaluate(pythNorm)
+        assertTrue(pythEval.isSuccess)
+        assertEquals(1.0, pythEval.values.first(), 1e-4)
+
+        // However, genuine equations with variables and equality MUST still be solved:
+        val eq1 = SpokenMathParser.tryParseAnyEquationQuery("sin x equals 0.5")
+        assertNotNull(eq1)
+        assertTrue(eq1!!.rootsSummary.contains("30°"))
+
+        val eq2 = SpokenMathParser.tryParseAnyEquationQuery("sin^2x + cos^2x = 1")
+        assertNotNull(eq2)
+        assertEquals(UniversalEquationSolver.EquationCategory.IDENTITY, eq2!!.category)
+    }
 }
