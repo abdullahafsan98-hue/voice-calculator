@@ -175,36 +175,7 @@ object SpokenMathParser {
      * - "bracket me 2 plus 3 into bracket me 4 minus 1" -> (2 plus 3) into (4 minus 1)
      */
     fun handleSpokenBrackets(text: String): String {
-        var s = text
-
-        // 1. Explicit open and close bracket words
-        s = s.replace(Regex("\\b(?:open\\s+(?:bracket|paren|parenthesis)|bracket\\s+open|paren\\s+open|bracket\\s+shuru)\\b"), " ( ")
-        s = s.replace(Regex("\\b(?:close\\s+(?:bracket|paren|parenthesis)|bracket\\s+close|paren\\s+close|bracket\\s+band|bracket\\s+khatam)\\b"), " ) ")
-
-        // 2. Preceded by operator: "into whole ...", "into bracket me ...", "times whole ...", "divided by whole ..."
-        val opBracketRegex = Regex("(\\b(?:into|times|guna|divided\\s+by|over|bhag|bata|\\*|\\/|\\+|-)\\s+)(?:whole\\s+(?:of\\s+)?|bracket\\s+(?:mein|me|ke\\s+andar)\\b\\s*|in\\s+bracket\\s*|inside\\s+bracket\\s*|bracket\\s+)([^()]+?)(?=\\s+(?:into|times|guna|divided\\s+by|over|bhag|\\*|\\/|\\band\\b|\\baur\\b)|$)")
-        s = s.replace(opBracketRegex) { mr ->
-            val op = mr.groupValues[1]
-            val inside = mr.groupValues[2].trim()
-            "$op($inside)"
-        }
-
-        // 3. Leading "bracket me ...", "bracket mein ...", "whole ...":
-        val leadBracketRegex = Regex("^(?:whole\\s+(?:of\\s+)?|bracket\\s+(?:mein|me|ke\\s+andar)\\b\\s*|in\\s+bracket\\s*|inside\\s+bracket\\s*)([^()]+?)(?=\\s+(?:into|times|guna|divided\\s+by|over|bhag|\\*|\\/|\\band\\b|\\baur\\b)|$)")
-        s = s.replace(leadBracketRegex) { mr ->
-            val inside = mr.groupValues[1].trim()
-            "($inside)"
-        }
-
-        // 4. "2 bracket 3 plus 4" or "2 bracket me 3 plus 4" without explicit "into":
-        val numBracketRegex = Regex("(\\d+(?:\\.\\d+)?|[a-zA-Z]+|\\))\\s+(?:bracket\\s+(?:mein|me|ke\\s+andar)\\b\\s*|bracket\\s+)([^()]+?)(?=\\s+(?:into|times|guna|divided\\s+by|over|bhag|\\*|\\/|\\band\\b|\\baur\\b)|$)")
-        s = s.replace(numBracketRegex) { mr ->
-            val prefix = mr.groupValues[1]
-            val inside = mr.groupValues[2].trim()
-            "$prefix * ($inside)"
-        }
-
-        return s
+        return PhoneticMathNormalizer.normalizeSpokenBrackets(text)
     }
 
     /**
@@ -216,54 +187,7 @@ object SpokenMathParser {
      * - "whole square of x plus 1" -> (x plus 1)^2
      */
     fun handleSpokenWholePowers(text: String): String {
-        var s = text
-
-        // 1. "whole square of (something)" / "whole cube of (something)"
-        s = s.replace(Regex("\\bwhole\\s+(?:square|sqaure|squar|varg)\\s+(?:of\\s+)?([^=;+*-]+?)(?=\\s+(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided|\\+|-|\\*|\\/|=|;)|$)", RegexOption.IGNORE_CASE)) { mr ->
-            "(${mr.groupValues[1].trim()})^2"
-        }
-        s = s.replace(Regex("\\bwhole\\s+(?:cube|cubed|ghan)\\s+(?:of\\s+)?([^=;+*-]+?)(?=\\s+(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided|\\+|-|\\*|\\/|=|;)|$)", RegexOption.IGNORE_CASE)) { mr ->
-            "(${mr.groupValues[1].trim()})^3"
-        }
-
-        // 2. Parenthesized expressions followed by "whole square" or "whole cube":
-        // e.g. "(x + 1) whole square", "(x + 1) ka whole square"
-        s = s.replace(Regex("\\(([^()]+)\\)\\s*(?:ka\\s+|ki\\s+)?(?:whole\\s+)?(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)) { mr ->
-            "(${mr.groupValues[1]})^2"
-        }
-        s = s.replace(Regex("\\(([^()]+)\\)\\s*(?:ka\\s+|ki\\s+)?(?:whole\\s+)?(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)) { mr ->
-            "(${mr.groupValues[1]})^3"
-        }
-        s = s.replace(Regex("\\(([^()]+)\\)\\s*(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)) { mr ->
-            "(${mr.groupValues[1]})^${mr.groupValues[2]}"
-        }
-
-        // 3. Unparenthesized expressions ending in "whole square":
-        // e.g. "x plus 1 whole square - x minus 1 whole square"
-        // e.g. "x plus 1 ka whole square minus x minus 1 ka whole square"
-        val unbracketedWholeSquare = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[-+=;*/()\\[\\]]\\s*)([^-+=;*/()\\[\\]]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
-        s = s.replace(unbracketedWholeSquare) { mr ->
-            val prefix = mr.groupValues[1]
-            val expr = mr.groupValues[2].trim()
-            "$prefix($expr)^2"
-        }
-
-        val unbracketedWholeCube = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[-+=;*/()\\[\\]]\\s*)([^-+=;*/()\\[\\]]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)
-        s = s.replace(unbracketedWholeCube) { mr ->
-            val prefix = mr.groupValues[1]
-            val expr = mr.groupValues[2].trim()
-            "$prefix($expr)^3"
-        }
-
-        val unbracketedWholePowerN = Regex("(^|\\b(?:plus|minus|equals|barabar|is\\s+equal|into|times|divided\\s+by|bhag|bata|aur|and)\\s+|[-+=;*/()\\[\\]]\\s*)([^-+=;*/()\\[\\]]+?)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)
-        s = s.replace(unbracketedWholePowerN) { mr ->
-            val prefix = mr.groupValues[1]
-            val expr = mr.groupValues[2].trim()
-            val p = mr.groupValues[3]
-            "$prefix($expr)^$p"
-        }
-
-        return s
+        return PhoneticMathNormalizer.normalizeWholePowers(text)
     }
 
     /**
@@ -367,19 +291,10 @@ object SpokenMathParser {
         if (!isEquationIntent) return null
 
         // Replace homophones
-        for ((regex, repl) in HOMOPHONE_FIXES) {
-            t = t.replace(regex, repl)
-        }
-
-        // Early replace barabar and zero
-        t = t.replace(Regex("\\bbarabar(?:\\s+hai)?\\b"), " = ")
-        t = t.replace(Regex("\\bshunya\\b|\\bshoonya\\b|\\bsifar\\b"), "0")
-
-        for ((regex, repl) in HINGLISH_FIXES) {
-            t = t.replace(regex, repl)
-        }
-        t = replaceHindiNumberWords(t)
-        t = replaceNumberWords(t)
+        // Homophones, Hinglish, and number words normalization via dedicated PhoneticMathNormalizer
+        t = PhoneticMathNormalizer.normalizeHomophones(t)
+        t = PhoneticMathNormalizer.normalizeHinglish(t)
+        t = PhoneticMathNormalizer.normalizeNumberWords(t)
 
         // Conversational triggers in both English and Hinglish
         val triggers = listOf(
@@ -444,8 +359,8 @@ object SpokenMathParser {
         t = t.replace(eqPowerRegex, " ^ ")
 
         // Operators
-        t = t.replace(Regex("\\bplus\\b|\\bjodo\\b|\\bjoda\\b|\\bdhan\\b"), "+")
-        t = t.replace(Regex("\\bminus\\b|\\bghatao\\b|\\bghata\\b|\\brin\\b"), "-")
+        t = t.replace(Regex("\\bplus\\b|\\bjodo\\b|\\bjoda\\b|\\bdhan\\b"), " + ")
+        t = t.replace(Regex("\\bminus\\b|\\bghatao\\b|\\bghata\\b|\\brin\\b"), " - ")
         t = t.replace(Regex("\\btimes\\b|\\binto\\b|\\bguna\\b"), "*")
         t = t.replace(Regex("\\bdivided by\\b|\\bbhag\\b|\\bbata\\b"), "/")
 
@@ -482,15 +397,10 @@ object SpokenMathParser {
 
         if (!isQuadraticIntent) return null
 
-        // Replace homophones, hindi numbers, english number words
-        for ((regex, repl) in HOMOPHONE_FIXES) {
-            t = t.replace(regex, repl)
-        }
-        for ((regex, repl) in HINGLISH_FIXES) {
-            t = t.replace(regex, repl)
-        }
-        t = replaceHindiNumberWords(t)
-        t = replaceNumberWords(t)
+        // Replace homophones, hindi numbers, english number words via PhoneticMathNormalizer
+        t = PhoneticMathNormalizer.normalizeHomophones(t)
+        t = PhoneticMathNormalizer.normalizeHinglish(t)
+        t = PhoneticMathNormalizer.normalizeNumberWords(t)
 
         // Check for explicit "a ... b ... c ..." format
         val abcRegex = Regex("a\\s*=?\\s*(-?\\d+(?:\\.\\d+)?)[,\\s]+b\\s*=?\\s*(-?\\d+(?:\\.\\d+)?)[,\\s]+c\\s*=?\\s*(-?\\d+(?:\\.\\d+)?)")
@@ -587,18 +497,11 @@ object SpokenMathParser {
      * Normalizes spoken text into a clean mathematical expression.
      */
     fun normalize(raw: String): String {
-        var t = raw.lowercase().trim()
+        var t = PhoneticMathNormalizer.normalizeHomophones(raw.lowercase().trim())
+        t = PhoneticMathNormalizer.normalizeHinglish(t)
         t = t.replace(Regex("[?!]"), "")
         t = t.replace("%", " percent ")
         t = t.replace(Regex("\\s+"), " ").trim()
-
-        // Homophones & Hinglish fixes
-        for ((regex, repl) in HOMOPHONE_FIXES) {
-            t = t.replace(regex, repl)
-        }
-        for ((regex, repl) in HINGLISH_FIXES) {
-            t = t.replace(regex, repl)
-        }
 
         // Remove filler phrases
         val fillerPhrases = listOf("what's", "whats", "what is", "calculate", "please", "equals", "equal to")
@@ -606,14 +509,11 @@ object SpokenMathParser {
             t = t.replace(Regex("\\b${Pattern.quote(phrase)}\\b"), "")
         }
 
-        t = replaceFractions(t)
-        t = replaceDecimalPoints(t)
-        t = replaceHindiNumberWords(t)
-        t = replaceNumberWords(t)
+        t = PhoneticMathNormalizer.normalizeNumberWords(t)
 
-        // Handle spoken brackets: "into whole 3 plus 4", "into bracket me 3 plus 4", "2 bracket 3 plus 4"
-        t = handleSpokenBrackets(t)
-        t = handleSpokenWholePowers(t)
+        // Handle spoken brackets and whole powers via PhoneticMathNormalizer
+        t = PhoneticMathNormalizer.normalizeSpokenBrackets(t)
+        t = PhoneticMathNormalizer.normalizeWholePowers(t)
 
         // Spoken constant fractions: "3 by 7" -> "(3/7)", "14 by 9" -> "(14/9)", "3 bata 7" -> "(3/7)"
         t = t.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*(?:by|over|bata|batte|batta)\\s*(\\d+(?:\\.\\d+)?)(?!\\s*[xyz])")) { mr ->
