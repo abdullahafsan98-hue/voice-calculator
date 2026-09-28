@@ -181,14 +181,14 @@ object PhoneticMathNormalizer {
         // 2. Exponentials / Powers: "number ki power number", "x ki power 2", "2 to the power 3"
         val powerOp = if (useCaretForPowers) " ^ " else "**"
         val powerRegex = Regex(
-            "\\b(?:raised\\s+to\\s+(?:the\\s+)?power(?:\\s+of)?|" +
+            "\\s*\\b(?:raised\\s+to\\s+(?:the\\s+)?power(?:\\s+of)?|" +
             "raised\\s+to|" +
             "to\\s+the\\s+power(?:\\s+of)?|" +
             "to\\s+power(?:\\s+of)?|" +
             "(?:ka|ki|ke)\\s+power(?:\\s+of)?|" +
             "(?:ka|ki|ke)\\s+ghat|" +
             "power(?:\\s+of)?|" +
-            "ghat)\\b",
+            "ghat)\\b\\s*",
             RegexOption.IGNORE_CASE
         )
         s = s.replace(powerRegex, powerOp)
@@ -227,22 +227,23 @@ object PhoneticMathNormalizer {
         }
 
         // 3. Binomial or polynomial expressions ending in "whole square":
-        // e.g. "x plus 1 whole square - x minus 1 whole square"
-        // e.g. "x plus 1 ka whole square minus x minus 1 ka whole square"
-        // Match the polynomial immediately preceding "whole square" without consuming the outer operator
-        val binomialWholeSquare = Regex("(\\([a-zA-Z0-9_+\\-*\\/\\s.]+\\)|[a-zA-Z0-9_.]+(?:\\s*(?:[+\\-]|plus|minus)\\s*[a-zA-Z0-9_.]+)+)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
+        // Exclude reserved math keywords (whole, square, cube, equals, barabar, etc.) so multiple clauses in a sentence don't get greedily joined
+        val nonReservedToken = "(?:(?!(?:whole|square|sqaure|squar|cube|cubed|varg|ghan|equals|barabar)\\b)[a-zA-Z0-9_.]+)"
+        val binomialExpr = "(\\([a-zA-Z0-9_+\\-*\\/\\s.]+\\)|$nonReservedToken(?:\\s*(?:[+\\-]|plus|minus)\\s*$nonReservedToken)+)"
+
+        val binomialWholeSquare = Regex("$binomialExpr\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:square|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(binomialWholeSquare) { mr ->
             val expr = mr.groupValues[1].trim().removePrefix("(").removeSuffix(")")
             "($expr)^2"
         }
 
-        val binomialWholeCube = Regex("(\\([a-zA-Z0-9_+\\-*\\/\\s.]+\\)|[a-zA-Z0-9_.]+(?:\\s*(?:[+\\-]|plus|minus)\\s*[a-zA-Z0-9_.]+)+)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)
+        val binomialWholeCube = Regex("$binomialExpr\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:cube|cubed|ghan)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(binomialWholeCube) { mr ->
             val expr = mr.groupValues[1].trim().removePrefix("(").removeSuffix(")")
             "($expr)^3"
         }
 
-        val binomialWholePowerN = Regex("(\\([a-zA-Z0-9_+\\-*\\/\\s.]+\\)|[a-zA-Z0-9_.]+(?:\\s*(?:[+\\-]|plus|minus)\\s*[a-zA-Z0-9_.]+)+)\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)
+        val binomialWholePowerN = Regex("$binomialExpr\\s+(?:ka\\s+|ki\\s+)?whole\\s+(?:power\\s*|ghat\\s*)(\\d+)\\b", RegexOption.IGNORE_CASE)
         s = s.replace(binomialWholePowerN) { mr ->
             val expr = mr.groupValues[1].trim().removePrefix("(").removeSuffix(")")
             val p = mr.groupValues[2]

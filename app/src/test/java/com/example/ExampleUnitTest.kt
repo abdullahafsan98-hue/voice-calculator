@@ -750,4 +750,76 @@ class ExampleUnitTest {
         assertNotNull(sol11)
         assertTrue(sol11!!.rootsSummary.contains("45°"))
     }
+
+    @Test
+    fun testInverseTrigonometryFunctions() {
+        // 1. Direct evaluations in radians
+        val eval1 = ScientificMathEvaluator.evaluate("asin(0.5)")
+        assertTrue(eval1.isSuccess)
+        assertEquals(Math.PI / 6.0, eval1.values.first(), 1e-5)
+
+        val eval2 = ScientificMathEvaluator.evaluate("acos(0.5)")
+        assertTrue(eval2.isSuccess)
+        assertEquals(Math.PI / 3.0, eval2.values.first(), 1e-5)
+
+        val eval3 = ScientificMathEvaluator.evaluate("atan(1)")
+        assertTrue(eval3.isSuccess)
+        assertEquals(Math.PI / 4.0, eval3.values.first(), 1e-5)
+
+        val eval4 = ScientificMathEvaluator.evaluate("asec(2)")
+        assertTrue(eval4.isSuccess)
+        assertEquals(Math.PI / 3.0, eval4.values.first(), 1e-5)
+
+        val eval5 = ScientificMathEvaluator.evaluate("acsc(2)")
+        assertTrue(eval5.isSuccess)
+        assertEquals(Math.PI / 6.0, eval5.values.first(), 1e-5)
+
+        val eval6 = ScientificMathEvaluator.evaluate("acot(1)")
+        assertTrue(eval6.isSuccess)
+        assertEquals(Math.PI / 4.0, eval6.values.first(), 1e-5)
+
+        // 2. Notation variants: sin^-1, sin⁻¹, arcsin
+        val eval7 = ScientificMathEvaluator.evaluate("sin^-1(0.5)")
+        assertTrue(eval7.isSuccess)
+        assertEquals(Math.PI / 6.0, eval7.values.first(), 1e-5)
+
+        val eval8 = ScientificMathEvaluator.evaluate("sin⁻¹(0.5)")
+        assertTrue(eval8.isSuccess)
+        assertEquals(Math.PI / 6.0, eval8.values.first(), 1e-5)
+
+        val eval9 = ScientificMathEvaluator.evaluate("arcsin(0.5)")
+        assertTrue(eval9.isSuccess)
+        assertEquals(Math.PI / 6.0, eval9.values.first(), 1e-5)
+
+        // 3. Spoken commands in degrees
+        val norm1 = SpokenMathParser.normalize("arcsine of 0.5")
+        val spokenEval1 = ScientificMathEvaluator.evaluate(norm1)
+        assertTrue(spokenEval1.isSuccess)
+        assertEquals(30.0, spokenEval1.values.first(), 1e-4)
+
+        val norm2 = SpokenMathParser.normalize("sin inverse of 0.5")
+        val spokenEval2 = ScientificMathEvaluator.evaluate(norm2)
+        assertTrue(spokenEval2.isSuccess)
+        assertEquals(30.0, spokenEval2.values.first(), 1e-4)
+
+        val norm3 = SpokenMathParser.normalize("tan inverse of 1")
+        val spokenEval3 = ScientificMathEvaluator.evaluate(norm3)
+        assertTrue(spokenEval3.isSuccess)
+        assertEquals(45.0, spokenEval3.values.first(), 1e-4)
+
+        val norm4 = SpokenMathParser.normalize("sec inverse of 2")
+        val spokenEval4 = ScientificMathEvaluator.evaluate(norm4)
+        assertTrue(spokenEval4.isSuccess)
+        assertEquals(60.0, spokenEval4.values.first(), 1e-4)
+
+        val norm5 = SpokenMathParser.normalize("cosec inverse of 2")
+        val spokenEval5 = ScientificMathEvaluator.evaluate(norm5)
+        assertTrue(spokenEval5.isSuccess)
+        assertEquals(30.0, spokenEval5.values.first(), 1e-4)
+
+        val norm6 = SpokenMathParser.normalize("cot inverse of 1")
+        val spokenEval6 = ScientificMathEvaluator.evaluate(norm6)
+        assertTrue(spokenEval6.isSuccess)
+        assertEquals(45.0, spokenEval6.values.first(), 1e-4)
+    }
 }

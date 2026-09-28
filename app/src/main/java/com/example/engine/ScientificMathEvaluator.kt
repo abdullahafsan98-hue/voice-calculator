@@ -93,21 +93,37 @@ object ScientificMathEvaluator {
         s = s.replace('÷', '/').replace('∕', '/')
         s = s.replace("²", "^2").replace("³", "^3").replace("⁴", "^4")
 
+        // 2b. Inverse trigonometric notations & symbols:
+        s = s.replace("sin⁻¹", "asin").replace("cos⁻¹", "acos").replace("tan⁻¹", "atan")
+        s = s.replace("sec⁻¹", "asec").replace("csc⁻¹", "acsc").replace("cosec⁻¹", "acsc").replace("cot⁻¹", "acot")
+        s = s.replace("sin^-1", "asin").replace("cos^-1", "acos").replace("tan^-1", "atan")
+        s = s.replace("sec^-1", "asec").replace("csc^-1", "acsc").replace("cosec^-1", "acsc").replace("cot^-1", "acot")
+        s = s.replace(Regex("\\barcsin\\b", RegexOption.IGNORE_CASE), "asin")
+        s = s.replace(Regex("\\barccos\\b", RegexOption.IGNORE_CASE), "acos")
+        s = s.replace(Regex("\\barctan\\b", RegexOption.IGNORE_CASE), "atan")
+        s = s.replace(Regex("\\barcsec\\b", RegexOption.IGNORE_CASE), "asec")
+        s = s.replace(Regex("\\barccsc\\b", RegexOption.IGNORE_CASE), "acsc")
+        s = s.replace(Regex("\\barccosec\\b", RegexOption.IGNORE_CASE), "acsc")
+        s = s.replace(Regex("\\barccot\\b", RegexOption.IGNORE_CASE), "acot")
+        s = s.replace(Regex("\\binvsin\\b", RegexOption.IGNORE_CASE), "asin")
+        s = s.replace(Regex("\\binvcos\\b", RegexOption.IGNORE_CASE), "acos")
+        s = s.replace(Regex("\\binvtan\\b", RegexOption.IGNORE_CASE), "atan")
+
         // 3. Trig function powers: e.g. "sin^2(30)" -> "(sin(30))^2", "cos^2 30" -> "(cos(30))^2", "sin^2x" -> "(sin(x))^2"
-        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*\\(([^()]+)\\)", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|asec|acsc|acot|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*\\(([^()]+)\\)", RegexOption.IGNORE_CASE)) { mr ->
             "(${mr.groupValues[1]}(${mr.groupValues[3]}))^${mr.groupValues[2]}"
         }
-        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*([a-zA-Z0-9_.]+(?:\\([^()]+\\))?)", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|asec|acsc|acot|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*([a-zA-Z0-9_.]+(?:\\([^()]+\\))?)", RegexOption.IGNORE_CASE)) { mr ->
             val arg = mr.groupValues[3].removePrefix("(").removeSuffix(")")
             "(${mr.groupValues[1]}($arg))^${mr.groupValues[2]}"
         }
 
         // 3b. Trig and transcendental functions with variable: "sinx" -> "sin(x)", "sin x" -> "sin(x)", "lnx" -> "ln(x)"
-        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot|ln|log|exp)\\s*([xyz]|theta)\\b", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|asec|acsc|acot|sinh|cosh|tanh|sec|csc|cosec|cot|ln|log|exp)\\s*([xyz]|theta)\\b", RegexOption.IGNORE_CASE)) { mr ->
             val v = if (mr.groupValues[2].equals("theta", ignoreCase = true)) "x" else mr.groupValues[2]
             "${mr.groupValues[1]}($v)"
         }
-        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot|exp)\\s+([a-zA-Z0-9_.]+(?:\\^[0-9]+)?)(?!\\s*\\()", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|asec|acsc|acot|sinh|cosh|tanh|sec|csc|cosec|cot|exp)\\s+([a-zA-Z0-9_.]+(?:\\^[0-9]+)?)(?!\\s*\\()", RegexOption.IGNORE_CASE)) { mr ->
             "${mr.groupValues[1]}(${mr.groupValues[2]})"
         }
 
@@ -408,15 +424,52 @@ object ScientificMathEvaluator {
                 }
                 "asin" -> {
                     checkArgCount(fname, args, 1)
-                    asin(args[0])
+                    val x = args[0]
+                    if (x < -1.0 || x > 1.0) throw IllegalArgumentException("asin domain error: input must be in [-1, 1]")
+                    asin(x)
                 }
                 "acos" -> {
                     checkArgCount(fname, args, 1)
-                    acos(args[0])
+                    val x = args[0]
+                    if (x < -1.0 || x > 1.0) throw IllegalArgumentException("acos domain error: input must be in [-1, 1]")
+                    acos(x)
                 }
                 "atan" -> {
                     checkArgCount(fname, args, 1)
                     atan(args[0])
+                }
+                "asec" -> {
+                    checkArgCount(fname, args, 1)
+                    val x = args[0]
+                    if (abs(x) < 1.0) throw IllegalArgumentException("asec domain error: |x| must be >= 1")
+                    acos(1.0 / x)
+                }
+                "acsc" -> {
+                    checkArgCount(fname, args, 1)
+                    val x = args[0]
+                    if (abs(x) < 1.0) throw IllegalArgumentException("acsc domain error: |x| must be >= 1")
+                    asin(1.0 / x)
+                }
+                "acot" -> {
+                    checkArgCount(fname, args, 1)
+                    Math.PI / 2.0 - atan(args[0])
+                }
+                "asinh" -> {
+                    checkArgCount(fname, args, 1)
+                    val x = args[0]
+                    ln(x + sqrt(x * x + 1.0))
+                }
+                "acosh" -> {
+                    checkArgCount(fname, args, 1)
+                    val x = args[0]
+                    if (x < 1.0) throw IllegalArgumentException("acosh domain error: x must be >= 1")
+                    ln(x + sqrt(x * x - 1.0))
+                }
+                "atanh" -> {
+                    checkArgCount(fname, args, 1)
+                    val x = args[0]
+                    if (abs(x) >= 1.0) throw IllegalArgumentException("atanh domain error: |x| must be < 1")
+                    0.5 * ln((1.0 + x) / (1.0 - x))
                 }
                 "sinh" -> {
                     checkArgCount(fname, args, 1)

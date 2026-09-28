@@ -11,8 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,41 +45,68 @@ fun KeypadView(
     ) {
         // Scientific Functions Drawer
         AnimatedVisibility(visible = isScientific) {
+            var isInverse by remember { mutableStateOf(false) }
+
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Scientific Row 1: sin, cos, tan, log, ln
+                // Scientific Row 1: INV, sin/sin⁻¹, cos/cos⁻¹, tan/tan⁻¹, log/10ˣ, ln/eˣ
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    ScientificButton("sin", onClick = { onAppend("sin(") }, modifier = Modifier.weight(1f))
-                    ScientificButton("cos", onClick = { onAppend("cos(") }, modifier = Modifier.weight(1f))
-                    ScientificButton("tan", onClick = { onAppend("tan(") }, modifier = Modifier.weight(1f))
-                    ScientificButton("log", onClick = { onAppend("log(") }, modifier = Modifier.weight(1f))
-                    ScientificButton("ln", onClick = { onAppend("log(") }, modifier = Modifier.weight(1f))
+                    ScientificButton(
+                        text = if (isInverse) "INV ●" else "INV",
+                        onClick = { isInverse = !isInverse },
+                        isHighlight = isInverse,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (!isInverse) {
+                        ScientificButton("sin", onClick = { onAppend("sin(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("cos", onClick = { onAppend("cos(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("tan", onClick = { onAppend("tan(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("log", onClick = { onAppend("log(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("ln", onClick = { onAppend("ln(") }, modifier = Modifier.weight(1f))
+                    } else {
+                        ScientificButton("sin⁻¹", onClick = { onAppend("asin(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("cos⁻¹", onClick = { onAppend("acos(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("tan⁻¹", onClick = { onAppend("atan(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("10ˣ", onClick = { onAppend("10^(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("eˣ", onClick = { onAppend("exp(") }, modifier = Modifier.weight(1f))
+                    }
                 }
 
-                // Scientific Row 2: √, x², x³, xʸ, π
+                // Scientific Row 2: sec/sec⁻¹, csc/csc⁻¹, cot/cot⁻¹, sinh, cosh / √, π, e
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    ScientificButton("√", onClick = { onAppend("sqrt(") }, modifier = Modifier.weight(1f))
+                    if (!isInverse) {
+                        ScientificButton("sec", onClick = { onAppend("sec(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("csc", onClick = { onAppend("csc(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("cot", onClick = { onAppend("cot(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("√", onClick = { onAppend("sqrt(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("π", onClick = { onAppend("pi") }, modifier = Modifier.weight(1f))
+                        ScientificButton("e", onClick = { onAppend("E") }, modifier = Modifier.weight(1f))
+                    } else {
+                        ScientificButton("sec⁻¹", onClick = { onAppend("asec(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("csc⁻¹", onClick = { onAppend("acsc(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("cot⁻¹", onClick = { onAppend("acot(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("sinh", onClick = { onAppend("sinh(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("cosh", onClick = { onAppend("cosh(") }, modifier = Modifier.weight(1f))
+                        ScientificButton("tanh", onClick = { onAppend("tanh(") }, modifier = Modifier.weight(1f))
+                    }
+                }
+
+                // Scientific Row 3: x², x³, xʸ, abs, mod, nCr, nPr
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     ScientificButton("x²", onClick = { onAppend("x²") }, modifier = Modifier.weight(1f))
                     ScientificButton("x³", onClick = { onAppend("x³") }, modifier = Modifier.weight(1f))
                     ScientificButton("xʸ", onClick = { onAppend("^") }, modifier = Modifier.weight(1f))
-                    ScientificButton("π", onClick = { onAppend("pi") }, modifier = Modifier.weight(1f))
-                }
-
-                // Scientific Row 3: e, abs, mod, nCr, nPr
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    ScientificButton("e", onClick = { onAppend("E") }, modifier = Modifier.weight(1f))
-                    ScientificButton("abs", onClick = { onAppend("Abs(") }, modifier = Modifier.weight(1f))
+                    ScientificButton("abs", onClick = { onAppend("abs(") }, modifier = Modifier.weight(1f))
                     ScientificButton("mod", onClick = { onAppend("%") }, modifier = Modifier.weight(1f))
                     ScientificButton("nCr", onClick = { onAppend("binomial(") }, modifier = Modifier.weight(1f))
-                    ScientificButton("nPr", onClick = { onAppend("permutations(") }, modifier = Modifier.weight(1f))
                 }
 
                 // Scientific Row 4: Variables x, y, z, = and Universal Equation Solver Studio shortcut
@@ -101,7 +127,7 @@ fun KeypadView(
                         ),
                         contentPadding = PaddingValues(0.dp),
                         modifier = Modifier
-                            .weight(2.2f)
+                            .weight(2f)
                             .height(42.dp)
                             .testTag("open_universal_solver_keypad_btn")
                     ) {
@@ -390,20 +416,21 @@ private fun KeypadBackspaceBtn(
 private fun ScientificButton(
     text: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isHighlight: Boolean = false
 ) {
     FilledTonalButton(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.filledTonalButtonColors(
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+            containerColor = if (isHighlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+            contentColor = if (isHighlight) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onTertiaryContainer
         ),
         contentPadding = PaddingValues(0.dp),
         modifier = modifier
             .height(42.dp)
             .testTag("sci_btn_$text")
     ) {
-        Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Text(text, fontSize = 13.sp, fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Medium)
     }
 }

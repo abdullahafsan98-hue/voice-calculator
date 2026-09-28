@@ -293,7 +293,8 @@ object SpokenMathParser {
                 t.contains("hal") || t.contains("samikaran") || t.contains("nikalo") || t.contains("batao") ||
                 t.contains("mool") || t.contains("cube") || t.contains("square") || t.contains("ghan") || t.contains("varg") ||
                 t.contains("by") || t.contains("bata") || t.contains("batta") || t.contains("batte") || t.contains("/") ||
-                t.contains("sin") || t.contains("cos") || t.contains("tan") || t.contains("sec") || t.contains("csc") || t.contains("cot")
+                t.contains("sin") || t.contains("cos") || t.contains("tan") || t.contains("sec") || t.contains("csc") || t.contains("cot") ||
+                t.contains("asin") || t.contains("acos") || t.contains("atan") || t.contains("inverse") || t.contains("arc")
 
         if (!isEquationIntent) return null
 
@@ -326,6 +327,20 @@ object SpokenMathParser {
         // Replace equality words
         t = t.replace(Regex("\\b(?:is\\s+)?(?:equal(?:s)?\\s*(?:to)?|barabar(?:\\s+hai)?)\\b"), "=")
         t = t.replace(Regex("\\bzero\\b|\\bshunya\\b|\\bsifar\\b"), "0")
+
+        // Inverse trig in equations: e.g. "sin inverse x equals 0.5", "arcsin x equals 0.5"
+        for ((name, short, sym) in listOf(
+            Triple("sine", "sin", "asin"),
+            Triple("cosine", "cos", "acos"),
+            Triple("tangent", "tan", "atan"),
+            Triple("secant", "sec", "asec"),
+            Triple("cosecant", "csc", "acsc"),
+            Triple("cosec", "csc", "acsc"),
+            Triple("cotangent", "cot", "acot")
+        )) {
+            t = t.replace(Regex("\\b(?:arc$name|arc$short|arc\\s+$name|arc\\s+$short|inverse\\s+$name|inverse\\s+$short)\\s*(?:of\\s+)?([xyz]|theta)\\b", RegexOption.IGNORE_CASE)) { "$sym(${it.groupValues[1]})" }
+            t = t.replace(Regex("\\b(?:$name|$short)\\s+inverse\\s*(?:of\\s+)?([xyz]|theta)\\b", RegexOption.IGNORE_CASE)) { "$sym(${it.groupValues[1]})" }
+        }
 
         // Handle spoken brackets (e.g. "2 into whole x plus 3 equals 14", "bracket me 2x plus 1")
         t = handleSpokenBrackets(t)
@@ -731,11 +746,16 @@ object SpokenMathParser {
         val trigPairs = listOf(
             Triple("sine", "sin", "asin"),
             Triple("cosine", "cos", "acos"),
-            Triple("tangent", "tan", "atan")
+            Triple("tangent", "tan", "atan"),
+            Triple("secant", "sec", "asec"),
+            Triple("cosecant", "csc", "acsc"),
+            Triple("cosec", "csc", "acsc"),
+            Triple("cotangent", "cot", "acot")
         )
         for ((name, short, sym) in trigPairs) {
-            t = t.replace(Regex("\\b(?:arc$name|arc$short|inverse $name|inverse $short) (?:of )?(-?\\d+(?:\\.\\d+)?)"), "((180/pi)*$sym($1))")
-            t = t.replace(Regex("\\binverse of (?:$name|$short)(?: of)? (-?\\d+(?:\\.\\d+)?)"), "((180/pi)*$sym($1))")
+            t = t.replace(Regex("\\b(?:arc$name|arc$short|arc\\s+$name|arc\\s+$short|inverse\\s+$name|inverse\\s+$short)\\s*(?:of\\s+)?(-?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE), "((180/pi)*$sym($1))")
+            t = t.replace(Regex("\\b(?:$name|$short)\\s+inverse\\s*(?:of\\s+)?(-?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE), "((180/pi)*$sym($1))")
+            t = t.replace(Regex("\\binverse\\s+of\\s+(?:$name|$short)\\s*(?:of\\s+)?(-?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE), "((180/pi)*$sym($1))")
         }
 
         // hyperbolic trig

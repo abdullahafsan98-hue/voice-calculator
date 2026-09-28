@@ -167,4 +167,13 @@ class PhoneticMathNormalizerTest {
         val res3 = PhoneticMathNormalizer.normalize("sign 30 jodo cause 60")
         assertEquals("sin 30 plus cos 60", res3)
     }
+
+    @Test
+    fun testInverseTrigonometryHomophonesAndNormalization() {
+        assertEquals("sin", PhoneticMathNormalizer.normalizeHomophones("sign"))
+        assertEquals("cos", PhoneticMathNormalizer.normalizeHomophones("cause"))
+        assertEquals("sec", PhoneticMathNormalizer.normalizeHomophones("secant"))
+        assertEquals("csc", PhoneticMathNormalizer.normalizeHomophones("cosecant"))
+        assertEquals("cot", PhoneticMathNormalizer.normalizeHomophones("cotangent"))
+    }
 }
