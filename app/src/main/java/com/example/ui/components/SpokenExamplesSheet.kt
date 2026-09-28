@@ -184,6 +184,33 @@ fun SpokenExamplesSheet(
             )
         ),
         SpokenExampleCategory(
+            categoryName = "Trigonometric Equations & Powers",
+            examples = listOf(
+                "sin square x + cos square x = 5" to "Contradiction (1 ≠ 5, No real roots)",
+                "sin^2x + cos^2x = 1" to "Identity (True for all real x)",
+                "sec^2x - tan^2x = 1" to "Identity (sec²x - tan²x ≡ 1)",
+                "sec^2x - tan^2x = 5" to "Contradiction (1 ≠ 5, No roots)",
+                "csc^2x - cot^2x = 1" to "Identity (csc²x - cot²x ≡ 1)",
+                "sin(x) = 0.5" to "x = 30°, 150° (+ 360°k)",
+                "cos(x) = 0" to "x = 90°, 270° (+ 360°k)",
+                "tan(x) = 1" to "x = 45°, 225° (+ 360°k)",
+                "cot(x) = 1" to "x = 45°, 225° (+ 360°k)",
+                "sec(x) = 2" to "x = 60°, 300° (+ 360°k)",
+                "cosec(x) = 2" to "x = 30°, 150° (+ 360°k)",
+                "tan^2x = 3" to "x = 60°, 120°, 240°, 300°",
+                "sin^2x = 0.25" to "x = 30°, 150°, 210°, 330°",
+                "sin ka square x plus cos ka square x barabar 5" to "Contradiction (Hinglish)",
+                "sin(x) * sin(x) = 0.25" to "Function x Self (x = 30°, 150°)",
+                "sin(x) * cos(x) = 0.5" to "Mixed Trig Product (x = 45°, 225°)",
+                "sin x cos x barabar point 5" to "Spoken Mixed Trig -> 45°, 225°",
+                "tan(x) * cot(x) = 1" to "Reciprocal Identity (∀ x ∈ ℝ)",
+                "tan(x) * cot(x) = 5" to "Contradiction (1 ≠ 5, No real roots)",
+                "x * sin(x) = 1" to "Algebraic × Trigonometric (x ≈ 1.114)",
+                "x * exp(x) = 2" to "Algebraic × Exponential (x ≈ 0.8526)",
+                "x * ln(x) = 1" to "Algebraic × Logarithmic (x ≈ 1.7632)"
+            )
+        ),
+        SpokenExampleCategory(
             categoryName = "Hindi / Hinglish Equation & Math Support",
             examples = listOf(
                 "SOLVE 3x+5 = 0" to "3x + 5 = 0 -> x = -1.6667",

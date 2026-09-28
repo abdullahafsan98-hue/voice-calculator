@@ -93,12 +93,22 @@ object ScientificMathEvaluator {
         s = s.replace('÷', '/').replace('∕', '/')
         s = s.replace("²", "^2").replace("³", "^3").replace("⁴", "^4")
 
-        // 3. Trig function powers: e.g. "sin^2(30)" -> "(sin(30))^2", "cos^2 30" -> "(cos(30))^2"
+        // 3. Trig function powers: e.g. "sin^2(30)" -> "(sin(30))^2", "cos^2 30" -> "(cos(30))^2", "sin^2x" -> "(sin(x))^2"
         s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*\\(([^()]+)\\)", RegexOption.IGNORE_CASE)) { mr ->
             "(${mr.groupValues[1]}(${mr.groupValues[3]}))^${mr.groupValues[2]}"
         }
-        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s+([a-zA-Z0-9_.]+(?:\\([^()]+\\))?)", RegexOption.IGNORE_CASE)) { mr ->
-            "(${mr.groupValues[1]}(${mr.groupValues[3]}))^${mr.groupValues[2]}"
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot)\\s*\\^\\s*(\\d+(?:\\.\\d+)?)\\s*([a-zA-Z0-9_.]+(?:\\([^()]+\\))?)", RegexOption.IGNORE_CASE)) { mr ->
+            val arg = mr.groupValues[3].removePrefix("(").removeSuffix(")")
+            "(${mr.groupValues[1]}($arg))^${mr.groupValues[2]}"
+        }
+
+        // 3b. Trig and transcendental functions with variable: "sinx" -> "sin(x)", "sin x" -> "sin(x)", "lnx" -> "ln(x)"
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot|ln|log|exp)\\s*([xyz]|theta)\\b", RegexOption.IGNORE_CASE)) { mr ->
+            val v = if (mr.groupValues[2].equals("theta", ignoreCase = true)) "x" else mr.groupValues[2]
+            "${mr.groupValues[1]}($v)"
+        }
+        s = s.replace(Regex("\\b(sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot|exp)\\s+([a-zA-Z0-9_.]+(?:\\^[0-9]+)?)(?!\\s*\\()", RegexOption.IGNORE_CASE)) { mr ->
+            "${mr.groupValues[1]}(${mr.groupValues[2]})"
         }
 
         // 3. Spaced 'x' or 'X' between numbers as multiplication (e.g. "3 x 4", "2 x (3+4)", "(2+3) x 5")
@@ -107,6 +117,23 @@ object ScientificMathEvaluator {
         }
 
         // 4. Implicit multiplication
+        // Variable followed by function or constant: "x sin(x)" -> "x*sin(x)", "x e^x" -> "x*e^x", "x ln(x)" -> "x*ln(x)"
+        s = s.replace(Regex("\\b([xyz])\\s*(sqrt|cbrt|sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|sec|csc|cosec|cot|log|ln|exp|pi|phi|E(?![a-zA-Z0-9]))", RegexOption.IGNORE_CASE)) { mr ->
+            "${mr.groupValues[1]}*${mr.groupValues[2]}"
+        }
+        // Variable followed by '(': "x(x+1)" -> "x*(x+1)"
+        s = s.replace(Regex("\\b([xyz])\\s*\\(")) { mr ->
+            "${mr.groupValues[1]}*("
+        }
+        // Variable followed by variable: "x y" -> "x*y", "x x" -> "x*x"
+        s = s.replace(Regex("\\b([xyz])\\s+([xyz])\\b")) { mr ->
+            "${mr.groupValues[1]}*${mr.groupValues[2]}"
+        }
+        // Number followed by variable: "2 x" -> "2*x"
+        s = s.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*([xyz])\\b")) { mr ->
+            "${mr.groupValues[1]}*${mr.groupValues[2]}"
+        }
+
         // Number followed by '(': "2(3+4)" -> "2*(3+4)"
         s = s.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*\\(")) { mr ->
             "${mr.groupValues[1]}*("
@@ -119,12 +146,12 @@ object ScientificMathEvaluator {
         s = s.replace(Regex("\\)\\s*(\\d+(?:\\.\\d+)?)")) { mr ->
             ")*${mr.groupValues[1]}"
         }
-        // ')' followed by letter/function: "(2)sqrt(9)" -> "(2)*sqrt(9)"
+        // ')' followed by letter/variable/function: "(2)sqrt(9)" -> "(2)*sqrt(9)", "(sin(x))cos(x)" -> "(sin(x))*cos(x)"
         s = s.replace(Regex("\\)\\s*([a-zA-Z])")) { mr ->
             ")*${mr.groupValues[1]}"
         }
         // Number followed by known function or constant (e.g. 2pi, 3sqrt, 2sin, 3log):
-        s = s.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*(sqrt|cbrt|sin|cos|tan|asin|acos|atan|log|ln|pi|phi|E(?!\\d))", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("(\\d+(?:\\.\\d+)?)\\s*(sqrt|cbrt|sin|cos|tan|asin|acos|atan|log|ln|exp|pi|phi|E(?!\\d))", RegexOption.IGNORE_CASE)) { mr ->
             "${mr.groupValues[1]}*${mr.groupValues[2]}"
         }
 
@@ -460,6 +487,10 @@ object ScientificMathEvaluator {
                 "ln" -> {
                     checkArgCount(fname, args, 1)
                     ln(args[0])
+                }
+                "exp" -> {
+                    checkArgCount(fname, args, 1)
+                    exp(args[0])
                 }
                 "log10" -> {
                     checkArgCount(fname, args, 1)

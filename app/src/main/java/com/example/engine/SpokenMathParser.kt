@@ -205,50 +205,56 @@ object SpokenMathParser {
 
         val trigFuncNames = "(?:sine|sin|cosine|cos|tangent|tan|secant|sec|cosecant|cosec|csc|cotangent|cot)"
 
-        // A. Square before angle: "sin square 30", "sin squared 30", "sin sqaure 30", "sin varg 30", "sin square x"
-        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:square|squared|sqaure|squar|varg)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+        // A. Square before angle: "sin square 30", "sin squared 30", "sin sqaure 30", "sin varg 30", "sin square x", "sin ka square x"
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:ka\\s+|ki\\s+)?(?:square|squared|sqaure|squar|varg)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|theta|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
             val fn = normalizeTrigName(mr.groupValues[1])
-            val angle = mr.groupValues[2]
+            val rawAngle = mr.groupValues[2]
+            val angle = if (rawAngle.equals("theta", ignoreCase = true)) "x" else rawAngle
             val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
             "($fn($angleArg))^2"
         }
 
         // B. Cube before angle: "sin cube 30", "sin cubed 30", "sin cub 30", "sin ghan 30"
-        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:cube|cubed|cub|ghan)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:ka\\s+|ki\\s+)?(?:cube|cubed|cub|ghan)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|theta|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
             val fn = normalizeTrigName(mr.groupValues[1])
-            val angle = mr.groupValues[2]
+            val rawAngle = mr.groupValues[2]
+            val angle = if (rawAngle.equals("theta", ignoreCase = true)) "x" else rawAngle
             val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
             "($fn($angleArg))^3"
         }
 
         // C. Arbitrary power before angle: "sin power 4 30", "sin to the power of 4 30", "sin ki power 2 30", "sin ki ghat 2 30"
-        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:(?:to the )?power(?: of)?|ki power|ki ghat|ghat|\\^)\\s*(\\d+(?:\\.\\d+)?)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:(?:to the )?power(?: of)?|ka power|ki power|ka ghat|ki ghat|ghat|\\^)\\s*(\\d+(?:\\.\\d+)?)\\s*(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|theta|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
             val fn = normalizeTrigName(mr.groupValues[1])
             val p = mr.groupValues[2]
-            val angle = mr.groupValues[3]
+            val rawAngle = mr.groupValues[3]
+            val angle = if (rawAngle.equals("theta", ignoreCase = true)) "x" else rawAngle
             val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
             "($fn($angleArg))^$p"
         }
 
         // D. Power AFTER angle: "sin 30 square", "sin 30 ka square", "sin 30 ka varg", "sin 30 cubed"
-        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)\\s*(?:ka\\s+|ki\\s+)?(?:square|squared|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|theta|pi(?:\\s*/\\s*\\d+)?)\\s*(?:ka\\s+|ki\\s+)?(?:square|squared|sqaure|squar|varg)\\b", RegexOption.IGNORE_CASE)) { mr ->
             val fn = normalizeTrigName(mr.groupValues[1])
-            val angle = mr.groupValues[2]
+            val rawAngle = mr.groupValues[2]
+            val angle = if (rawAngle.equals("theta", ignoreCase = true)) "x" else rawAngle
             val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
             "($fn($angleArg))^2"
         }
 
-        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)\\s*(?:ka\\s+|ki\\s+)?(?:cube|cubed|cub|ghan)\\b", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|theta|pi(?:\\s*/\\s*\\d+)?)\\s*(?:ka\\s+|ki\\s+)?(?:cube|cubed|cub|ghan)\\b", RegexOption.IGNORE_CASE)) { mr ->
             val fn = normalizeTrigName(mr.groupValues[1])
-            val angle = mr.groupValues[2]
+            val rawAngle = mr.groupValues[2]
+            val angle = if (rawAngle.equals("theta", ignoreCase = true)) "x" else rawAngle
             val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
             "($fn($angleArg))^3"
         }
 
         // E. Simple degree-1 trig functions: "sin 30", "cos 60", "tan 45", "sec 60", "csc 30", "cot 45"
-        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
+        s = s.replace(Regex("\\b($trigFuncNames)\\s+(?:of\\s+)?(-?\\d+(?:\\.\\d+)?|[xyz]|theta|pi(?:\\s*/\\s*\\d+)?)", RegexOption.IGNORE_CASE)) { mr ->
             val fn = normalizeTrigName(mr.groupValues[1])
-            val angle = mr.groupValues[2]
+            val rawAngle = mr.groupValues[2]
+            val angle = if (rawAngle.equals("theta", ignoreCase = true)) "x" else rawAngle
             val angleArg = if (angle == "x" || angle == "y" || angle == "z" || angle.contains("pi")) angle else "($angle)*pi/180"
             "$fn($angleArg)"
         }
@@ -283,10 +289,11 @@ object SpokenMathParser {
 
         val isEquationIntent = t.contains("solve") || t.contains("equation") || t.contains("system") ||
                 t.contains("root") || t.contains("equal") || t.contains("=") || t.contains("barabar") ||
-                t.contains("x") || t.contains("y") || t.contains("z") ||
+                t.contains("x") || t.contains("y") || t.contains("z") || t.contains("theta") ||
                 t.contains("hal") || t.contains("samikaran") || t.contains("nikalo") || t.contains("batao") ||
                 t.contains("mool") || t.contains("cube") || t.contains("square") || t.contains("ghan") || t.contains("varg") ||
-                t.contains("by") || t.contains("bata") || t.contains("batta") || t.contains("batte") || t.contains("/")
+                t.contains("by") || t.contains("bata") || t.contains("batta") || t.contains("batte") || t.contains("/") ||
+                t.contains("sin") || t.contains("cos") || t.contains("tan") || t.contains("sec") || t.contains("csc") || t.contains("cot")
 
         if (!isEquationIntent) return null
 
@@ -322,6 +329,7 @@ object SpokenMathParser {
 
         // Handle spoken brackets (e.g. "2 into whole x plus 3 equals 14", "bracket me 2x plus 1")
         t = handleSpokenBrackets(t)
+        t = replaceSpokenTrigFunctionsAndPowers(t)
         t = handleSpokenWholePowers(t)
 
         // 1. Spoken fraction variables: "1 by 3 x", "1 bata 3 x", "1/3 x", "2 by 5 x", "two by five x"

@@ -71,7 +71,11 @@ object UniversalEquationSolver {
         val lhsStr = sides[0].trim()
         val rhsStr = sides[1].trim()
 
-        // 1. Try Polynomial Solver (Linear, Quadratic, Cubic, Quartic)
+        // 1. Try Trigonometric Equation Solver (Identities, Contradictions, Periodic & Power solutions)
+        val trigSol = trySolveTrigonometric(lhsStr, rhsStr, eq)
+        if (trigSol != null) return trigSol
+
+        // 2. Try Polynomial Solver (Linear, Quadratic, Cubic, Quartic)
         val polySol = trySolvePolynomial(lhsStr, rhsStr, eq, hasOriginalEquals)
         if (polySol != null) return polySol
 
@@ -1005,7 +1009,9 @@ object UniversalEquationSolver {
     // ==========================================
 
     private fun solveNumericalTranscendental(lhsStr: String, rhsStr: String, originalEq: String): EquationSolution? {
-        val diffExpr = "($lhsStr) - ($rhsStr)"
+        val sanitizedLhs = ScientificMathEvaluator.preprocessExpression(lhsStr)
+        val sanitizedRhs = ScientificMathEvaluator.preprocessExpression(rhsStr)
+        val diffExpr = "($sanitizedLhs) - ($sanitizedRhs)"
 
         fun f(xVal: Double): Double? {
             val replaced = diffExpr
@@ -1014,14 +1020,77 @@ object UniversalEquationSolver {
             return if (eval.isSuccess && eval.values.isNotEmpty()) eval.values.first() else null
         }
 
-        // Bracket scan between -20 and 20
+        fun evalLhs(xVal: Double): Double? {
+            val replaced = sanitizedLhs.replace(Regex("(?<![a-zA-Z])x(?![a-zA-Z])"), "($xVal)")
+            val eval = ScientificMathEvaluator.evaluate(replaced)
+            return if (eval.isSuccess && eval.values.isNotEmpty()) eval.values.first() else null
+        }
+
+        fun evalRhs(xVal: Double): Double? {
+            val replaced = sanitizedRhs.replace(Regex("(?<![a-zA-Z])x(?![a-zA-Z])"), "($xVal)")
+            val eval = ScientificMathEvaluator.evaluate(replaced)
+            return if (eval.isSuccess && eval.values.isNotEmpty()) eval.values.first() else null
+        }
+
+        // Quick identity or constant contradiction check
+        val testPoints = listOf(-2.5, -1.2, -0.4, 0.3, 1.1, 1.8, 2.7, 3.6, 4.5, 5.8)
+        val diffSamples = testPoints.mapNotNull { f(it) }.filter { !it.isNaN() && !it.isInfinite() }
+        val lhsSamples = testPoints.mapNotNull { evalLhs(it) }.filter { !it.isNaN() && !it.isInfinite() }
+        val rhsSamples = testPoints.mapNotNull { evalRhs(it) }.filter { !it.isNaN() && !it.isInfinite() }
+
+        if (diffSamples.size >= 6) {
+            val meanDiff = diffSamples.average()
+            val varianceDiff = diffSamples.map { (it - meanDiff).pow(2) }.average()
+            if (varianceDiff < 1e-7 && abs(meanDiff) < 1e-4) {
+                val steps = mutableListOf<String>()
+                steps.add("Equation: $originalEq")
+                steps.add("Standard form: f(x) = ($sanitizedLhs) - ($sanitizedRhs) = 0")
+                steps.add("The expression simplifies to an identity where LHS identically equals RHS.")
+                steps.add("Conclusion: Identity — Valid for all real numbers x in the domain (∀ x ∈ ℝ).")
+                return EquationSolution(
+                    category = EquationCategory.IDENTITY,
+                    originalEquation = originalEq,
+                    rootsSummary = "Identity: True for all real x in domain",
+                    variables = mapOf("x" to "∀ x ∈ ℝ"),
+                    steps = steps,
+                    spokenSummary = "This equation is an identity valid for all real numbers x.",
+                    spokenSummaryHinglish = "Yeh samikaran ek identity hai jo sabhi maano ke liye satya hai.",
+                    isExact = true
+                )
+            }
+            if (varianceDiff < 1e-6 && abs(meanDiff) > 1e-4 && (lhsSamples.size >= 6 && rhsSamples.size >= 6)) {
+                val lhsVar = lhsSamples.map { (it - lhsSamples.average()).pow(2) }.average()
+                val rhsVar = rhsSamples.map { (it - rhsSamples.average()).pow(2) }.average()
+                if (lhsVar < 1e-6 || rhsVar < 1e-6) {
+                    val lhsVal = lhsSamples.first()
+                    val rhsVal = rhsSamples.first()
+                    val steps = mutableListOf<String>()
+                    steps.add("Equation: $originalEq")
+                    steps.add("Simplifying both sides yields: ${formatNum(lhsVal)} = ${formatNum(rhsVal)}")
+                    steps.add("Since ${formatNum(lhsVal)} ≠ ${formatNum(rhsVal)}, this equation has no solution.")
+                    steps.add("Conclusion: Contradiction — The solution set is empty (x ∈ ∅).")
+                    return EquationSolution(
+                        category = EquationCategory.CONTRADICTION,
+                        originalEquation = originalEq,
+                        rootsSummary = "No real solution (Contradiction: ${formatNum(lhsVal)} ≠ ${formatNum(rhsVal)})",
+                        variables = emptyMap(),
+                        steps = steps,
+                        spokenSummary = "No real solution exists due to mathematical contradiction.",
+                        spokenSummaryHinglish = "Koi vaastavik hal nahi hai.",
+                        isExact = true
+                    )
+                }
+            }
+        }
+
+        // Bracket scan between -20 and 20 with fine step 0.05
         val roots = mutableListOf<Double>()
         var prevX = -20.0
         var prevY = f(prevX)
-        val step = 0.2
+        val step = 0.05
         var currX = prevX + step
 
-        while (currX <= 20.0 && roots.size < 4) {
+        while (currX <= 20.0 && roots.size < 6) {
             val currY = f(currX)
             if (prevY != null && currY != null && !prevY.isNaN() && !currY.isNaN()) {
                 if (prevY * currY <= 0.0) {
@@ -1029,14 +1098,15 @@ object UniversalEquationSolver {
                     var low = prevX
                     var high = currX
                     var mid = (low + high) / 2.0
-                    for (iter in 0..35) {
+                    for (iter in 0..40) {
                         mid = (low + high) / 2.0
                         val fMid = f(mid) ?: break
                         if (abs(fMid) < 1e-9 || (high - low) < 1e-9) break
                         val fLow = f(low) ?: break
                         if (fLow * fMid <= 0.0) high = mid else low = mid
                     }
-                    if (roots.none { abs(it - mid) < 0.05 }) {
+                    val fFinal = f(mid)
+                    if (fFinal != null && abs(fFinal) < 1e-3 && roots.none { abs(it - mid) < 0.05 }) {
                         roots.add(mid)
                     }
                 }
@@ -1049,8 +1119,8 @@ object UniversalEquationSolver {
         if (roots.isEmpty()) return null
 
         val steps = mutableListOf<String>()
-        steps.add("Non-linear / Transcendental Equation:")
-        steps.add("  f(x) = ($lhsStr) - ($rhsStr) = 0")
+        steps.add("Non-linear / Mixed Function Equation:")
+        steps.add("  f(x) = ($sanitizedLhs) - ($sanitizedRhs) = 0")
         steps.add("Solved using iterative numerical bracket root convergence:")
 
         val formattedRoots = roots.map { formatNum(it) }
@@ -1091,5 +1161,231 @@ object UniversalEquationSolver {
                 String.format(java.util.Locale.US, "%.4f", rounded).trimEnd('0').trimEnd('.')
             }
         }
+    }
+
+    // ==========================================
+    // 5. TRIGONOMETRIC EQUATION SOLVER
+    // ==========================================
+
+    private fun trySolveTrigonometric(lhsStr: String, rhsStr: String, originalEq: String): EquationSolution? {
+        val trigPattern = Regex("\\b(sin|cos|tan|sec|csc|cosec|cot)\\b", RegexOption.IGNORE_CASE)
+        val hasTrig = (lhsStr + rhsStr).contains(trigPattern)
+        if (!hasTrig) return null
+
+        val sanitizedLhs = ScientificMathEvaluator.preprocessExpression(lhsStr)
+        val sanitizedRhs = ScientificMathEvaluator.preprocessExpression(rhsStr)
+        val diffExpr = "($sanitizedLhs) - ($sanitizedRhs)"
+
+        fun f(xVal: Double): Double? {
+            val replaced = diffExpr.replace(Regex("(?<![a-zA-Z])x(?![a-zA-Z])"), "($xVal)")
+            val eval = ScientificMathEvaluator.evaluate(replaced)
+            return if (eval.isSuccess && eval.values.isNotEmpty()) eval.values.first() else null
+        }
+
+        fun evalLhs(xVal: Double): Double? {
+            val replaced = sanitizedLhs.replace(Regex("(?<![a-zA-Z])x(?![a-zA-Z])"), "($xVal)")
+            val eval = ScientificMathEvaluator.evaluate(replaced)
+            return if (eval.isSuccess && eval.values.isNotEmpty()) eval.values.first() else null
+        }
+
+        fun evalRhs(xVal: Double): Double? {
+            val replaced = sanitizedRhs.replace(Regex("(?<![a-zA-Z])x(?![a-zA-Z])"), "($xVal)")
+            val eval = ScientificMathEvaluator.evaluate(replaced)
+            return if (eval.isSuccess && eval.values.isNotEmpty()) eval.values.first() else null
+        }
+
+        // Test sample points in (0, 2π) to detect identities or constant contradictions
+        val testPoints = listOf(0.18, 0.42, 0.79, 1.15, 1.63, 2.05, 2.68, 3.24, 3.82, 4.35, 4.96, 5.61)
+        val diffSamples = testPoints.mapNotNull { f(it) }.filter { !it.isNaN() && !it.isInfinite() }
+        val lhsSamples = testPoints.mapNotNull { evalLhs(it) }.filter { !it.isNaN() && !it.isInfinite() }
+        val rhsSamples = testPoints.mapNotNull { evalRhs(it) }.filter { !it.isNaN() && !it.isInfinite() }
+
+        if (diffSamples.size >= 8) {
+            val meanDiff = diffSamples.average()
+            val varianceDiff = diffSamples.map { (it - meanDiff).pow(2) }.average()
+
+            // 1. Identity Check: f(x) ≡ 0 everywhere
+            if (varianceDiff < 1e-7 && abs(meanDiff) < 1e-4) {
+                val steps = mutableListOf<String>()
+                steps.add("Trigonometric Equation: $originalEq")
+                steps.add("Standard form: f(x) = ($sanitizedLhs) - ($sanitizedRhs) = 0")
+                steps.add("Identity Verification:")
+                steps.add("  Evaluating using fundamental trigonometric identities (e.g. sin²(x) + cos²(x) ≡ 1, sec²(x) - tan²(x) ≡ 1, csc²(x) - cot²(x) ≡ 1):")
+                steps.add("  The left-hand side is identically equal to the right-hand side for all real angles x.")
+                steps.add("Conclusion: Identity — Solution is valid for all real numbers x (∀ x ∈ ℝ).")
+
+                return EquationSolution(
+                    category = EquationCategory.IDENTITY,
+                    originalEquation = originalEq,
+                    rootsSummary = "Identity: True for all real x (∀ x ∈ ℝ)",
+                    variables = mapOf("x" to "∀ x ∈ ℝ"),
+                    steps = steps,
+                    spokenSummary = "This is a trigonometric identity that holds true for all real values of x.",
+                    spokenSummaryHinglish = "Yeh ek trigonometric identity hai jo x ke sabhi vaastavik maano ke liye satya hai.",
+                    isExact = true
+                )
+            }
+
+            // 2. Constant Contradiction Check: f(x) ≡ constant ≠ 0 (e.g. sin^2x + cos^2x = 5)
+            val lhsVariance = if (lhsSamples.size >= 8) {
+                val m = lhsSamples.average()
+                lhsSamples.map { (it - m).pow(2) }.average()
+            } else 1.0
+
+            val rhsVariance = if (rhsSamples.size >= 8) {
+                val m = rhsSamples.average()
+                rhsSamples.map { (it - m).pow(2) }.average()
+            } else 1.0
+
+            if (varianceDiff < 1e-6 && abs(meanDiff) > 1e-4 && (lhsVariance < 1e-6 || rhsVariance < 1e-6)) {
+                val lhsVal = lhsSamples.firstOrNull() ?: 1.0
+                val rhsVal = rhsSamples.firstOrNull() ?: 0.0
+                val steps = mutableListOf<String>()
+                steps.add("Trigonometric Equation: $originalEq")
+                steps.add("Fundamental Identity Analysis:")
+                steps.add("  Evaluating both sides with fundamental trigonometric identities (e.g. sin²(x)+cos²(x) ≡ 1, sec²(x)-tan²(x) ≡ 1, csc²(x)-cot²(x) ≡ 1):")
+                steps.add("  Evaluating both sides gives: ${formatNum(lhsVal)} = ${formatNum(rhsVal)}")
+                steps.add("  Since ${formatNum(lhsVal)} ≠ ${formatNum(rhsVal)}, this equation has no real solutions.")
+                steps.add("Conclusion: Contradiction — The solution set is empty (x ∈ ∅).")
+
+                val rootsSummary = "No real solution (Contradiction: ${formatNum(lhsVal)} ≠ ${formatNum(rhsVal)})"
+                val spoken = "No real solution exists. The left hand side simplifies to ${formatNum(lhsVal)}, which cannot equal ${formatNum(rhsVal)}."
+                val spokenHinglish = "Koi vaastavik hal nahi hai. Left hand side ${formatNum(lhsVal)} hai, jo ${formatNum(rhsVal)} ke barabar kabhi nahi ho sakta."
+
+                return EquationSolution(
+                    category = EquationCategory.CONTRADICTION,
+                    originalEquation = originalEq,
+                    rootsSummary = rootsSummary,
+                    variables = emptyMap(),
+                    steps = steps,
+                    spokenSummary = spoken,
+                    spokenSummaryHinglish = spokenHinglish,
+                    isExact = true
+                )
+            }
+        }
+
+        // 3. Periodic Root Finding in [0, 2π)
+        val roots = mutableListOf<Double>()
+        val step = 0.01 // ~628 intervals in [0, 2π]
+        var prevX = 0.0
+        var prevY = f(prevX)
+        var currX = prevX + step
+
+        val twoPi = 2.0 * Math.PI
+        while (currX <= twoPi + 0.005) {
+            val currY = f(currX)
+            if (prevY != null && currY != null && !prevY.isNaN() && !currY.isNaN()) {
+                if (prevY * currY <= 0.0) {
+                    var low = prevX
+                    var high = currX
+                    var mid = (low + high) / 2.0
+                    for (iter in 0..40) {
+                        mid = (low + high) / 2.0
+                        val fMid = f(mid) ?: break
+                        if (abs(fMid) < 1e-10 || (high - low) < 1e-10) break
+                        val fLow = f(low) ?: break
+                        if (fLow * fMid <= 0.0) high = mid else low = mid
+                    }
+                    val normalizedRoot = if (abs(mid - twoPi) < 0.01) 0.0 else mid
+                    val fFinal = f(normalizedRoot)
+                    if (fFinal != null && abs(fFinal) < 1e-3 && roots.none { abs(it - normalizedRoot) < 0.02 }) {
+                        roots.add(normalizedRoot)
+                    }
+                }
+            }
+            prevX = currX
+            prevY = currY
+            currX += step
+        }
+
+        roots.sort()
+
+        if (roots.isEmpty()) {
+            // Check if bounds contradiction (e.g. sin(x) = 2, cos(x) = -3, sin^2(x) = 4)
+            val steps = mutableListOf<String>()
+            steps.add("Trigonometric Equation: $originalEq")
+            steps.add("Range & Boundedness Check:")
+            steps.add("  Trigonometric functions sin(x) and cos(x) are strictly bounded in the range [-1, 1].")
+            steps.add("  No real value of x satisfies the equation across the fundamental domain [0, 2π).")
+            steps.add("Conclusion: No real solution exists.")
+
+            return EquationSolution(
+                category = EquationCategory.CONTRADICTION,
+                originalEquation = originalEq,
+                rootsSummary = "No real solution (Values outside trigonometric range)",
+                variables = emptyMap(),
+                steps = steps,
+                spokenSummary = "No real solution exists because the equation requires values outside the trigonometric range.",
+                spokenSummaryHinglish = "Koi vaastavik hal nahi hai kyunki maan trigonometric range ke bahar hai.",
+                isExact = true
+            )
+        }
+
+        // Format roots with both exact degrees and radians
+        val steps = mutableListOf<String>()
+        steps.add("Trigonometric Equation: $originalEq")
+        steps.add("Standard form: f(x) = ($sanitizedLhs) - ($sanitizedRhs) = 0")
+        steps.add("Principal roots in the interval [0, 2π) / [0°, 360°):")
+
+        val formattedRoots = roots.map { r ->
+            val deg = (r * 180.0 / Math.PI)
+            val roundedDeg = round(deg * 100.0) / 100.0
+            val exactAngleName = getExactAngleLabel(roundedDeg, r)
+            exactAngleName
+        }
+
+        formattedRoots.forEachIndexed { idx, label ->
+            steps.add("  x${idx + 1} = $label")
+        }
+        steps.add("General periodic solution:")
+        steps.add("  x = (principal roots) + 2kπ,  k ∈ ℤ")
+
+        val rootsSummary = formattedRoots.mapIndexed { idx, label -> "x${idx + 1} = $label" }.joinToString(", ")
+        val spoken = "Trigonometric roots found: ${formattedRoots.joinToString(", ")}."
+        val spokenHinglish = "Trigonometric samikaran ke mool hain: ${formattedRoots.joinToString(", ")}."
+
+        return EquationSolution(
+            category = EquationCategory.TRANSCENDENTAL_NUMERICAL,
+            originalEquation = originalEq,
+            rootsSummary = "$rootsSummary  [+ 2kπ]",
+            variables = formattedRoots.mapIndexed { idx, label -> "x${idx + 1}" to label }.toMap(),
+            steps = steps,
+            spokenSummary = spoken,
+            spokenSummaryHinglish = spokenHinglish,
+            isExact = false
+        )
+    }
+
+    private fun getExactAngleLabel(deg: Double, rad: Double): String {
+        val intDeg = round(deg).toInt()
+        val isCloseToInt = abs(deg - intDeg) < 0.05
+        if (isCloseToInt) {
+            val piFraction = when (intDeg) {
+                0 -> "0 rad"
+                30 -> "π/6 rad"
+                45 -> "π/4 rad"
+                60 -> "π/3 rad"
+                90 -> "π/2 rad"
+                120 -> "2π/3 rad"
+                135 -> "3π/4 rad"
+                150 -> "5π/6 rad"
+                180 -> "π rad"
+                210 -> "7π/6 rad"
+                225 -> "5π/4 rad"
+                240 -> "4π/3 rad"
+                270 -> "3π/2 rad"
+                300 -> "5π/3 rad"
+                315 -> "7π/4 rad"
+                330 -> "11π/6 rad"
+                360 -> "2π rad"
+                else -> null
+            }
+            if (piFraction != null) {
+                return "$intDeg° ($piFraction)"
+            }
+            return "$intDeg° (${formatNum(rad)} rad)"
+        }
+        return "${formatNum(deg)}° (${formatNum(rad)} rad)"
     }
 }

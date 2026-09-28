@@ -611,4 +611,143 @@ class ExampleUnitTest {
         assertNotNull(eqSol)
         assertTrue(eqSol!!.rootsSummary.contains("4"))
     }
+
+    @Test
+    fun testTrigonometricEquationsWithPowersAndIdentities() {
+        // 1. User's exact prompt: sin^2x + cos^2x = 5 -> Contradiction / No real solution!
+        val sol1 = UniversalEquationSolver.solveAny("sin^2x + cos^2x = 5")
+        assertNotNull(sol1)
+        assertEquals(UniversalEquationSolver.EquationCategory.CONTRADICTION, sol1!!.category)
+        assertTrue(sol1.rootsSummary.contains("No real solution"))
+
+        // 2. User's spoken form: "sin square x + cos square x = 5"
+        val sol2 = SpokenMathParser.tryParseAnyEquationQuery("sin square x + cos square x = 5")
+        assertNotNull(sol2)
+        assertEquals(UniversalEquationSolver.EquationCategory.CONTRADICTION, sol2!!.category)
+        assertTrue(sol2.rootsSummary.contains("No real solution"))
+
+        // 3. Spoken Hinglish: "sin ka square x plus cos ka square x barabar 5"
+        val sol3 = SpokenMathParser.tryParseAnyEquationQuery("sin ka square x plus cos ka square x barabar 5")
+        assertNotNull(sol3)
+        assertEquals(UniversalEquationSolver.EquationCategory.CONTRADICTION, sol3!!.category)
+
+        // 4. Identity: sin^2x + cos^2x = 1 -> True for all real x!
+        val sol4 = UniversalEquationSolver.solveAny("sin^2x + cos^2x = 1")
+        assertNotNull(sol4)
+        assertEquals(UniversalEquationSolver.EquationCategory.IDENTITY, sol4!!.category)
+        assertTrue(sol4.rootsSummary.contains("Identity") || sol4.rootsSummary.contains("∀ x ∈ ℝ"))
+
+        // 5. sin(x) = 0.5 -> 30°, 150°
+        val sol5 = UniversalEquationSolver.solveAny("sin(x) = 0.5")
+        assertNotNull(sol5)
+        assertTrue(sol5!!.rootsSummary.contains("30°") && sol5.rootsSummary.contains("150°"))
+
+        // 6. tan(x) = 1 -> 45°, 225°
+        val sol6 = UniversalEquationSolver.solveAny("tan(x) = 1")
+        assertNotNull(sol6)
+        assertTrue(sol6!!.rootsSummary.contains("45°") && sol6.rootsSummary.contains("225°"))
+
+        // 7. cos(x) = 0 -> 90°, 270°
+        val sol7 = UniversalEquationSolver.solveAny("cos(x) = 0")
+        assertNotNull(sol7)
+        assertTrue(sol7!!.rootsSummary.contains("90°") && sol7.rootsSummary.contains("270°"))
+
+        // 8. Higher power trig equation: sin^2x = 0.25 -> 30°, 150°, 210°, 330°
+        val sol8 = UniversalEquationSolver.solveAny("sin^2x = 0.25")
+        assertNotNull(sol8)
+        assertTrue(sol8!!.rootsSummary.contains("30°") && sol8.rootsSummary.contains("150°"))
+
+        // 9. sec^2x - tan^2x = 1 -> Identity!
+        val sol9 = UniversalEquationSolver.solveAny("sec^2x - tan^2x = 1")
+        assertNotNull(sol9)
+        assertEquals(UniversalEquationSolver.EquationCategory.IDENTITY, sol9!!.category)
+
+        // 10. sec^2x - tan^2x = 5 -> Contradiction!
+        val sol10 = UniversalEquationSolver.solveAny("sec^2x - tan^2x = 5")
+        assertNotNull(sol10)
+        assertEquals(UniversalEquationSolver.EquationCategory.CONTRADICTION, sol10!!.category)
+
+        // 11. csc^2x - cot^2x = 1 -> Identity!
+        val sol11 = UniversalEquationSolver.solveAny("csc^2x - cot^2x = 1")
+        assertNotNull(sol11)
+        assertEquals(UniversalEquationSolver.EquationCategory.IDENTITY, sol11!!.category)
+
+        // 12. cot(x) = 1 -> 45°, 225°
+        val sol12 = UniversalEquationSolver.solveAny("cot(x) = 1")
+        assertNotNull(sol12)
+        assertTrue(sol12!!.rootsSummary.contains("45°") && sol12.rootsSummary.contains("225°"))
+
+        // 13. sec(x) = 2 -> 60°, 300°
+        val sol13 = UniversalEquationSolver.solveAny("sec(x) = 2")
+        assertNotNull(sol13)
+        assertTrue(sol13!!.rootsSummary.contains("60°") && sol13.rootsSummary.contains("300°"))
+
+        // 14. csc(x) = 2 -> 30°, 150°
+        val sol14 = UniversalEquationSolver.solveAny("csc(x) = 2")
+        assertNotNull(sol14)
+        assertTrue(sol14!!.rootsSummary.contains("30°") && sol14.rootsSummary.contains("150°"))
+
+        // 15. tan^2x = 3 -> 60°, 120°, 240°, 300°
+        val sol15 = UniversalEquationSolver.solveAny("tan^2x = 3")
+        assertNotNull(sol15)
+        assertTrue(sol15!!.rootsSummary.contains("60°") && sol15.rootsSummary.contains("120°"))
+    }
+
+    @Test
+    fun testFunctionMultiplicationByItselfAndMixedFunctions() {
+        // 1. Function multiplied by itself: sin(x) * sin(x) = 0.25 -> 30°, 150°
+        val sol1 = UniversalEquationSolver.solveAny("sin(x) * sin(x) = 0.25")
+        assertNotNull(sol1)
+        assertTrue(sol1!!.rootsSummary.contains("30°") && sol1.rootsSummary.contains("150°"))
+
+        // 2. sinx * sinx + cosx * cosx = 1 -> Identity
+        val sol2 = UniversalEquationSolver.solveAny("sinx * sinx + cosx * cosx = 1")
+        assertNotNull(sol2)
+        assertEquals(UniversalEquationSolver.EquationCategory.IDENTITY, sol2!!.category)
+
+        // 3. sinx * sinx + cosx * cosx = 5 -> Contradiction
+        val sol3 = UniversalEquationSolver.solveAny("sinx * sinx + cosx * cosx = 5")
+        assertNotNull(sol3)
+        assertEquals(UniversalEquationSolver.EquationCategory.CONTRADICTION, sol3!!.category)
+
+        // 4. Mixed trig functions: sin(x) * cos(x) = 0.5 -> 45°, 225°
+        val sol4 = UniversalEquationSolver.solveAny("sin(x) * cos(x) = 0.5")
+        assertNotNull(sol4)
+        assertTrue(sol4!!.rootsSummary.contains("45°") && sol4.rootsSummary.contains("225°"))
+
+        // 5. Implicit function multiplication: sinx cosx = 0.5 -> 45°, 225°
+        val sol5 = UniversalEquationSolver.solveAny("sinx cosx = 0.5")
+        assertNotNull(sol5)
+        assertTrue(sol5!!.rootsSummary.contains("45°") && sol5.rootsSummary.contains("225°"))
+
+        // 6. Reciprocal identity: tan(x) * cot(x) = 1 -> Identity
+        val sol6 = UniversalEquationSolver.solveAny("tan(x) * cot(x) = 1")
+        assertNotNull(sol6)
+        assertEquals(UniversalEquationSolver.EquationCategory.IDENTITY, sol6!!.category)
+
+        // 7. Reciprocal contradiction: tan(x) * cot(x) = 5 -> Contradiction
+        val sol7 = UniversalEquationSolver.solveAny("tan(x) * cot(x) = 5")
+        assertNotNull(sol7)
+        assertEquals(UniversalEquationSolver.EquationCategory.CONTRADICTION, sol7!!.category)
+
+        // 8. Algebraic * Trigonometric: x * sin(x) = 1
+        val sol8 = UniversalEquationSolver.solveAny("x * sin(x) = 1")
+        assertNotNull(sol8)
+        assertTrue(sol8!!.variables.isNotEmpty())
+
+        // 9. Algebraic * Exponential: x * exp(x) = 2
+        val sol9 = UniversalEquationSolver.solveAny("x * exp(x) = 2")
+        assertNotNull(sol9)
+        assertTrue(sol9!!.rootsSummary.contains("0.85") || sol9.rootsSummary.contains("0.852"))
+
+        // 10. Algebraic * Logarithmic: x * ln(x) = 1
+        val sol10 = UniversalEquationSolver.solveAny("x * ln(x) = 1")
+        assertNotNull(sol10)
+        assertTrue(sol10!!.rootsSummary.contains("1.76") || sol10.rootsSummary.contains("1.763"))
+
+        // 11. Spoken mixed: "sin x into cos x barabar point 5"
+        val sol11 = SpokenMathParser.tryParseAnyEquationQuery("sin x into cos x barabar point 5")
+        assertNotNull(sol11)
+        assertTrue(sol11!!.rootsSummary.contains("45°"))
+    }
 }
